@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "@repo/tailwind-config";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
   --background: oklch(0.9789 0.0082 121.6272);

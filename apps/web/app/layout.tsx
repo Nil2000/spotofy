@@ -2,7 +2,7 @@ import "@repo/ui/styles.css";
 import "./globals.css";
 import type { Metadata } from "next";
 import { DM_Sans, Geist, Space_Mono } from "next/font/google";
-import { ThemeProvider } from "../lib/providers/theme-provider";
+import { ThemeProvider } from "../components/theme-provider";
 
 const geist = Geist({ subsets: ["latin"] });
 
