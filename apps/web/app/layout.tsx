@@ -1,16 +1,12 @@
-import "@repo/ui/styles.css";
-import "./globals.css";
+import "@repo/ui/globals.css";
+// import "./globals.css";
 import type { Metadata } from "next";
-import { DM_Sans, Geist, Space_Mono } from "next/font/google";
+import { Lora, Fira_Code, Geist } from "next/font/google";
 import { ThemeProvider } from "../components/theme-provider";
 
 const geist = Geist({ subsets: ["latin"] });
-
-const dm_sans = DM_Sans({ subsets: ["latin"] });
-const space_mono = Space_Mono({
-  subsets: ["latin"],
-  weight: ["400", "700"],
-});
+const lora = Lora({ subsets: ["latin"] });
+const firacode = Fira_Code({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Create Turborepo",
@@ -24,7 +20,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={dm_sans.className + " " + space_mono.className}>
+      <body
+        className={
+          geist.className + " " + lora.className + " " + firacode.className
+        }
+      >
         <ThemeProvider
           attribute="class"
           enableSystem
