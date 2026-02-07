@@ -39,6 +39,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Generate Prisma Client
+        run: bunx turbo run build --filter=@repo/db
+
       - name: Build
         run: bunx turbo run build --filter=web
 
@@ -57,6 +60,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Generate Prisma Client
+        run: bunx turbo run build --filter=@repo/db
+
       - name: Lint
         run: bunx turbo run lint --filter=web
 
@@ -74,6 +80,9 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: bunx turbo run build --filter=@repo/db
 
       - name: Type Check
         run: bunx turbo run check-types --filter=web
