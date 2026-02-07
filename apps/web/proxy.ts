@@ -3,13 +3,11 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import {
   authRoutes,
-  authProtectedRoutes,
   DEFAULT_LOGIN_REDIRECT_URL,
   publicRoutes,
   authPrefix,
   protectedRoutes,
 } from "./lib/routes";
-import { getSessionCookie } from "better-auth/cookies";
 
 export async function proxy(request: NextRequest) {
   const session = await auth.api.getSession({
