@@ -3,10 +3,15 @@
   "ui": "tui",
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "^db:generate"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
-      "env": ["DATABASE_URL"]
+      "env": [
+        "DATABASE_URL",
+        "WEB_APP_URL",
+        "BETTER_AUTH_SECRET",
+        "GOOGLE_CLIENT_*"
+      ]
     },
     "lint": {
       "dependsOn": ["^lint"]
@@ -15,6 +20,7 @@
       "dependsOn": ["^check-types"]
     },
     "dev": {
+      "dependsOn": ["^db:generate"],
       "cache": false,
       "persistent": true
     },

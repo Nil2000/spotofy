@@ -13,7 +13,6 @@ import {
   Sparkles,
   QrCode,
 } from "lucide-react";
-import { Button } from "@repo/ui/components/ui/button";
 
 export default function JoinPage() {
   const [code, setCode] = useState("");
