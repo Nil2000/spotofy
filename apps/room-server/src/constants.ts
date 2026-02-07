@@ -1,0 +1,1 @@
+export const SONG_REQUEST_TIMEOUT = 10000;
