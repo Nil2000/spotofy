@@ -1,0 +1,14 @@
+services:
+  # Database for local development
+  spotofy-db:
+    image: postgres:17
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: spotofy
+      POSTGRES_DB: spotofy
+    volumes:
+      - spotofy-db-data:/var/lib/postgresql/data
+
+volumes:
+  spotofy-db-data:
