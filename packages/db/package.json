@@ -2,6 +2,8 @@
   "name": "@repo/db",
   "version": "0.0.0",
   "scripts": {
+    "build": "dotenv -e ../../.env prisma generate",
+    "check-types": "tsc --noEmit",
     "db:generate": "dotenv -e ../../.env prisma generate",
     "db:migrate": "dotenv -e ../../.env prisma migrate dev",
     "db:deploy": "dotenv -e ../../.env prisma migrate deploy"
@@ -16,7 +18,9 @@
     "dotenv-cli": "^11.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.0.10"
+    "@repo/typescript-config": "*",
+    "@types/node": "^25.0.10",
+    "typescript": "5.9.2"
   },
   "exports": {
     ".": "./src/index.ts"
