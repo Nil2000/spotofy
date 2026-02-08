@@ -1,30 +1,27 @@
-// will be having only ws server
-// upvote songs
-// request to add songs
-// approve songs by only admin
-// list queue of songs(should provide real time song list updates)
+import { WebSocketServer } from "ws";
+import { handleMessage, handleDisconnect } from "./handerFunctions";
 
-Bun.serve({
-  port: 3001,
-  websocket: {
-    message(ws, message) {
-      console.log(message);
-    }, // a message is received
-    open(ws) {
-      console.log("connection started");
-    }, // a socket is opened
-    close(ws, code, message) {
-      console.log("connection closed");
-    }, // a socket is closed
-    drain(ws) {
-      console.log("drain");
-    }, // the socket is ready to receive more data
-  },
-  fetch(req, server) {
-    // upgrade the request to a WebSocket
-    if (server.upgrade(req)) {
-      return; // do not return a Response
-    }
-    return new Response("Upgrade failed", { status: 500 });
-  },
+const PORT = Number(process.env.WS_PORT) || 3001;
+const wss = new WebSocketServer({ port: PORT });
+
+wss.on("connection", (ws) => {
+  console.log("client connected");
+
+  ws.on("message", (data) => {
+    handleMessage(ws, data.toString()).catch((err) => {
+      console.error("message handler error:", err);
+    });
+  });
+
+  ws.on("close", () => {
+    console.log("client disconnected");
+    handleDisconnect(ws);
+  });
+
+  ws.on("error", (err) => {
+    console.error("ws error:", err);
+    handleDisconnect(ws);
+  });
 });
+
+console.log(`WebSocket server running on port ${PORT}`);
