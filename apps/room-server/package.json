@@ -1,0 +1,21 @@
+{
+  "name": "room-server",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "dotenv -e ../../.env bun run src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/ws": "^8.18.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@repo/db": "*",
+    "dotenv-cli": "^11.0.0",
+    "ws": "^8.19.0"
+  }
+}

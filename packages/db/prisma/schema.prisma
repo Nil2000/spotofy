@@ -25,6 +25,7 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+  rooms         Room[]
 
   @@unique([email])
   @@map("user")
@@ -76,4 +77,43 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model Room {
+  id          String   @id @default(cuid())
+  name        String
+  adminId     String
+  admin       User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  maxUpvotes  Int      @default(5)
+  maxUsers    Int      @default(10)
+  autoApprove Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  songs       Song[]
+
+  @@index([adminId])
+  @@map("room")
+}
+
+enum SongStatus {
+  REQUESTED
+  QUEUED
+  PLAYING
+  REJECTED
+}
+
+model Song {
+  id        String     @id @default(cuid())
+  name      String
+  artist    String
+  url       String
+  upvotes   Int        @default(0)
+  imgUrl    String
+  status    SongStatus @default(REQUESTED)
+  roomId    String
+  room      Room       @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@index([roomId])
+  @@map("song")
 }
