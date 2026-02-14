@@ -17,14 +17,12 @@ export function useWebSocket() {
   const [roomConfig, setRoomConfig] = useState<RoomConfig | null>(null);
   const [queue, setQueue] = useState<SongData[]>([]);
   const [pendingRequests, setPendingRequests] = useState<SongData[]>([]);
-  const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
 
   const handleServerMessage = useCallback((message: ServerMessage) => {
     switch (message.type) {
       case "joined_room": {
         setRoomConfig(message.payload.config);
         setQueue(message.payload.queue);
-        setCurrentRoomId(message.payload.roomId);
         break;
       }
 
@@ -82,10 +80,10 @@ export function useWebSocket() {
         setError(null);
         console.log("WebSocket connected");
 
-        // Rejoin room if we were in one
-        if (currentRoomId) {
-          // Note: User needs to be passed, this is handled by joinRoom
-        }
+        // // Rejoin room if we were in one
+        // if (currentRoomId) {
+        //   // Note: User needs to be passed, this is handled by joinRoom
+        // }
       };
 
       wsRef.current.onmessage = (event) => {
@@ -112,7 +110,7 @@ export function useWebSocket() {
       setError("Failed to create WebSocket connection");
       console.error("Failed to create WebSocket:", err);
     }
-  }, [currentRoomId, handleServerMessage]);
+  }, [handleServerMessage]);
 
   const sendMessage = useCallback((message: ClientMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -125,7 +123,6 @@ export function useWebSocket() {
 
   const joinRoom = useCallback(
     (roomId: string, user: JWTPayload) => {
-      setCurrentRoomId(roomId);
       sendMessage({
         type: "join_room",
         payload: { roomId, user },
@@ -175,14 +172,13 @@ export function useWebSocket() {
   );
 
   useEffect(() => {
-    if (!wsRef.current) connect();
-
+    connect();
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
       }
     };
-  }, []);
+  }, [connect]);
 
   return {
     connectionState,
