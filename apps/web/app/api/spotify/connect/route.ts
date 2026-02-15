@@ -1,9 +1,6 @@
 import { auth } from "@/lib/auth";
-import {
-  SPOTIFY_AUTHORIZE_PATH,
-  SPOTIFY_BASE_URL,
-  SPOTIFY_OAUTH_STATE_COOKIE,
-} from "@/lib/constants";
+import { SPOTIFY_AUTHORIZE_PATH, SPOTIFY_BASE_URL } from "@/lib/constants";
+import { prisma } from "@repo/db";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -11,20 +8,35 @@ export async function GET(req: NextRequest) {
     headers: req.headers,
   });
 
+  const baseUrl = process.env.WEB_APP_URL ?? req.nextUrl.origin;
   if (!session) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(new URL(`${baseUrl}/login`));
   }
 
   if (!process.env.SPOTIFY_CLIENT_ID) {
     return NextResponse.redirect(
-      new URL("/admin?spotify=error&reason=config", req.url),
+      new URL(`${baseUrl}/admin?spotify=error&reason=config`),
     );
   }
 
   const state = crypto.randomUUID();
+  await prisma.spotifyOAuthState.upsert({
+    where: {
+      userId: session.user.id,
+    },
+    create: {
+      userId: session.user.id,
+      state,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    },
+    update: {
+      state,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    },
+  });
+
   const scope =
     "streaming user-read-private user-read-email user-read-playback-state user-modify-playback-state";
-  const baseUrl = process.env.WEB_APP_URL ?? req.nextUrl.origin;
   const redirectUri = `${baseUrl}/api/spotify/callback`;
   const params = new URLSearchParams({
     client_id: process.env.SPOTIFY_CLIENT_ID,
@@ -35,15 +47,5 @@ export async function GET(req: NextRequest) {
   });
 
   const authUrl = `${SPOTIFY_BASE_URL}${SPOTIFY_AUTHORIZE_PATH}?${params.toString()}`;
-  const response = NextResponse.redirect(authUrl);
-
-  response.cookies.set(SPOTIFY_OAUTH_STATE_COOKIE, state, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 10 * 60,
-  });
-
-  return response;
+  return NextResponse.redirect(authUrl);
 }

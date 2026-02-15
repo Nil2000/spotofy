@@ -1,9 +1,5 @@
 import { auth } from "@/lib/auth";
-import {
-  SPOTIFY_BASE_URL,
-  SPOTIFY_OAUTH_STATE_COOKIE,
-  SPOTIFY_TOKEN_PATH,
-} from "@/lib/constants";
+import { SPOTIFY_BASE_URL, SPOTIFY_TOKEN_PATH } from "@/lib/constants";
 import { prisma } from "@repo/db";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -16,53 +12,80 @@ type SpotifyTokenResponse = {
 };
 
 export async function GET(req: NextRequest) {
+  const baseUrl = process.env.WEB_APP_URL ?? req.nextUrl.origin;
   const session = await auth.api.getSession({
     headers: req.headers,
   });
 
   if (!session) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(new URL(`${baseUrl}/login`));
   }
 
   const code = req.nextUrl.searchParams.get("code");
   const state = req.nextUrl.searchParams.get("state");
   const error = req.nextUrl.searchParams.get("error");
-  const expectedState = req.cookies.get(SPOTIFY_OAUTH_STATE_COOKIE)?.value;
 
   if (error) {
-    const response = NextResponse.redirect(
+    return NextResponse.redirect(
       new URL(
-        `/admin?spotify=error&reason=${encodeURIComponent(error)}`,
-        req.url,
+        `${baseUrl}/admin?spotify=error&reason=${encodeURIComponent(error)}`,
       ),
     );
-    response.cookies.delete(SPOTIFY_OAUTH_STATE_COOKIE);
-    return response;
   }
 
-  if (!code || !state || !expectedState || state !== expectedState) {
-    const response = NextResponse.redirect(
-      new URL("/admin?spotify=error&reason=invalid_state", req.url),
+  if (!code || !state) {
+    return NextResponse.redirect(
+      new URL(`${baseUrl}/admin?spotify=error&reason=invalid_state`),
     );
-    response.cookies.delete(SPOTIFY_OAUTH_STATE_COOKIE);
-    return response;
   }
 
   const clientId = process.env.SPOTIFY_CLIENT_ID;
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    const response = NextResponse.redirect(
-      new URL("/admin?spotify=error&reason=config", req.url),
+    return NextResponse.redirect(
+      new URL(`${baseUrl}/admin?spotify=error&reason=config`),
     );
-    response.cookies.delete(SPOTIFY_OAUTH_STATE_COOKIE);
-    return response;
   }
 
-  const baseUrl = process.env.WEB_APP_URL ?? req.nextUrl.origin;
   const redirectUri = `${baseUrl}/api/spotify/callback`;
 
   try {
+    const oauthState = await prisma.spotifyOAuthState.findUnique({
+      where: {
+        userId: session.user.id,
+      },
+      select: {
+        id: true,
+        state: true,
+        expiresAt: true,
+      },
+    });
+
+    if (
+      !oauthState ||
+      oauthState.state !== state ||
+      oauthState.expiresAt.getTime() <= Date.now()
+    ) {
+      if (oauthState) {
+        await prisma.spotifyOAuthState.delete({
+          where: {
+            id: oauthState.id,
+          },
+        });
+      }
+
+      return NextResponse.redirect(
+        new URL(`${baseUrl}/admin?spotify=error&reason=invalid_state`),
+      );
+    }
+
+    await prisma.spotifyOAuthState.delete({
+      where: {
+        id: oauthState.id,
+      },
+    });
+
     const tokenResponse = await fetch(
       `${SPOTIFY_BASE_URL}${SPOTIFY_TOKEN_PATH}`,
       {
@@ -80,11 +103,9 @@ export async function GET(req: NextRequest) {
     );
 
     if (!tokenResponse.ok) {
-      const response = NextResponse.redirect(
-        new URL("/admin?spotify=error&reason=token_exchange", req.url),
+      return NextResponse.redirect(
+        new URL(`${baseUrl}/admin?spotify=error&reason=token_exchange`),
       );
-      response.cookies.delete(SPOTIFY_OAUTH_STATE_COOKIE);
-      return response;
     }
 
     const tokenData = (await tokenResponse.json()) as SpotifyTokenResponse;
@@ -100,16 +121,10 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    const response = NextResponse.redirect(
-      new URL("/admin?spotify=connected", req.url),
-    );
-    response.cookies.delete(SPOTIFY_OAUTH_STATE_COOKIE);
-    return response;
+    return NextResponse.redirect(new URL(`${baseUrl}/admin?spotify=connected`));
   } catch {
-    const response = NextResponse.redirect(
-      new URL("/admin?spotify=error&reason=server", req.url),
+    return NextResponse.redirect(
+      new URL(`${baseUrl}/admin?spotify=error&reason=server`),
     );
-    response.cookies.delete(SPOTIFY_OAUTH_STATE_COOKIE);
-    return response;
   }
 }
