@@ -8,6 +8,7 @@ export const auth = betterAuth({
     provider: "postgresql", // or "mysql", "postgresql", ...etc
   }),
   baseURL: process.env.WEB_APP_URL,
+  trustedOrigins: [process.env.WEB_APP_URL!],
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID as string,

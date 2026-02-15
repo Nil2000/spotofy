@@ -10,7 +10,9 @@ type SignInProps = {
   callbackURL?: string;
 };
 
-export function SignIn({ callbackURL = "/" }: SignInProps) {
+export function SignIn({
+  callbackURL = `${process.env.NEXT_PUBLIC_WEB_APP_URL}`,
+}: SignInProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
