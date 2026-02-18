@@ -2,6 +2,10 @@
 
 import { motion } from "motion/react";
 import Link from "next/link";
+import { Badge } from "@repo/ui/components/ui/badge";
+import { Button } from "@repo/ui/components/ui/button";
+import { Card, CardContent } from "@repo/ui/components/ui/card";
+import { Separator } from "@repo/ui/components/ui/separator";
 import {
   Music,
   Vote,
@@ -130,13 +134,14 @@ export default function Page() {
                   Join Room
                 </Link>
                 <Link href="/admin">
-                  <motion.button
+                  <motion.div
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
                   >
-                    Create Room
-                  </motion.button>
+                    <Button className="px-4 py-2 shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all">
+                      Create Room
+                    </Button>
+                  </motion.div>
                 </Link>
               </div>
             </div>
@@ -152,10 +157,13 @@ export default function Page() {
               transition={{ duration: 0.8 }}
               className="mb-6"
             >
-              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-8">
+              <Badge
+                variant="outline"
+                className="inline-flex items-center gap-2 px-4 py-2 h-auto rounded-full border-primary/20 bg-primary/10 text-primary text-sm font-medium mb-8"
+              >
                 <Sparkles className="w-4 h-4" />
                 Collaborative Music Experience
-              </span>
+              </Badge>
             </motion.div>
 
             <motion.h1
@@ -191,24 +199,29 @@ export default function Page() {
               className="flex flex-col sm:flex-row gap-4 justify-center items-center px-4"
             >
               <Link href="/admin" className="w-full sm:w-auto">
-                <motion.button
+                <motion.div
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  className="w-full sm:w-auto group px-8 py-4 bg-linear-to-r from-primary to-primary/80 text-primary-foreground rounded-xl font-semibold text-lg shadow-xl shadow-primary/30 hover:shadow-primary/50 transition-all flex items-center justify-center gap-2"
                 >
-                  Create Room
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </motion.button>
+                  <Button className="w-full sm:w-auto group h-auto px-8 py-4 bg-linear-to-r from-primary to-primary/80 text-primary-foreground rounded-xl font-semibold text-lg shadow-xl shadow-primary/30 hover:shadow-primary/50 transition-all flex items-center justify-center gap-2">
+                    Create Room
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </motion.div>
               </Link>
 
               <Link href="/join" className="w-full sm:w-auto">
-                <motion.button
+                <motion.div
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  className="w-full sm:w-auto px-8 py-4 bg-card/80 backdrop-blur-sm border border-border text-foreground rounded-xl font-semibold text-lg hover:bg-card hover:border-primary/30 transition-all"
                 >
-                  Join a Room
-                </motion.button>
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto h-auto px-8 py-4 bg-card/80 backdrop-blur-sm border-border text-foreground rounded-xl font-semibold text-lg hover:bg-card hover:border-primary/30 transition-all"
+                  >
+                    Join a Room
+                  </Button>
+                </motion.div>
               </Link>
             </motion.div>
 
@@ -265,20 +278,26 @@ export default function Page() {
                   key={index}
                   variants={fadeInUp}
                   whileHover={{ y: -8 }}
-                  className="group relative p-6 bg-card/80 backdrop-blur-sm rounded-2xl border border-border hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300"
+                  className="group"
                 >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center group-hover:from-primary/30 group-hover:to-accent/30 transition-colors">
-                      <step.icon className="w-6 h-6 text-primary" />
-                    </div>
-                    <span className="text-3xl font-bold text-muted-foreground/30 group-hover:text-primary/30 transition-colors">
-                      {step.number}
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {step.description}
-                  </p>
+                  <Card className="p-6 bg-card/80 backdrop-blur-sm rounded-2xl border-border hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300">
+                    <CardContent className="px-0">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center group-hover:from-primary/30 group-hover:to-accent/30 transition-colors">
+                          <step.icon className="w-6 h-6 text-primary" />
+                        </div>
+                        <span className="text-3xl font-bold text-muted-foreground/30 group-hover:text-primary/30 transition-colors">
+                          {step.number}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">
+                        {step.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {step.description}
+                      </p>
+                    </CardContent>
+                  </Card>
                 </motion.div>
               ))}
             </motion.div>
@@ -316,19 +335,23 @@ export default function Page() {
                   key={index}
                   variants={fadeInUp}
                   whileHover={{ scale: 1.02 }}
-                  className="group p-6 bg-card/60 backdrop-blur-sm rounded-2xl border border-border hover:border-primary/40 shadow-md hover:shadow-lg transition-all duration-300"
+                  className="group"
                 >
-                  <div
-                    className={`w-12 h-12 rounded-xl bg-linear-to-br ${feature.gradient} flex items-center justify-center mb-4 shadow-lg`}
-                  >
-                    <feature.icon className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">
-                    {feature.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {feature.description}
-                  </p>
+                  <Card className="p-6 bg-card/60 backdrop-blur-sm rounded-2xl border-border hover:border-primary/40 shadow-md hover:shadow-lg transition-all duration-300">
+                    <CardContent className="px-0">
+                      <div
+                        className={`w-12 h-12 rounded-xl bg-linear-to-br ${feature.gradient} flex items-center justify-center mb-4 shadow-lg`}
+                      >
+                        <feature.icon className="w-6 h-6 text-white" />
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">
+                        {feature.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {feature.description}
+                      </p>
+                    </CardContent>
+                  </Card>
                 </motion.div>
               ))}
             </motion.div>
@@ -362,24 +385,29 @@ export default function Page() {
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center px-4">
                 <Link href="/admin" className="w-full sm:w-auto">
-                  <motion.button
+                  <motion.div
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
-                    className="w-full sm:w-auto group px-10 py-5 bg-linear-to-r from-primary to-accent text-primary-foreground rounded-xl font-bold text-lg shadow-xl shadow-primary/30 hover:shadow-primary/50 transition-all flex items-center justify-center gap-2"
                   >
-                    Get Started Free
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </motion.button>
+                    <Button className="w-full sm:w-auto group h-auto px-10 py-5 bg-linear-to-r from-primary to-accent text-primary-foreground rounded-xl font-bold text-lg shadow-xl shadow-primary/30 hover:shadow-primary/50 transition-all flex items-center justify-center gap-2">
+                      Get Started Free
+                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </motion.div>
                 </Link>
 
                 <Link href="/join" className="w-full sm:w-auto">
-                  <motion.button
+                  <motion.div
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
-                    className="w-full sm:w-auto px-10 py-5 bg-card/80 backdrop-blur-sm border border-border text-foreground rounded-xl font-bold text-lg hover:bg-card hover:border-primary/30 transition-all"
                   >
-                    Join Existing Room
-                  </motion.button>
+                    <Button
+                      variant="outline"
+                      className="w-full sm:w-auto h-auto px-10 py-5 bg-card/80 backdrop-blur-sm border-border text-foreground rounded-xl font-bold text-lg hover:bg-card hover:border-primary/30 transition-all"
+                    >
+                      Join Existing Room
+                    </Button>
+                  </motion.div>
                 </Link>
               </div>
             </motion.div>
@@ -406,6 +434,7 @@ export default function Page() {
                 >
                   Privacy
                 </Link>
+                <Separator orientation="vertical" className="h-4" />
                 <Link
                   href="#"
                   className="hover:text-foreground transition-colors"

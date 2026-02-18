@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import Link from "next/link";
+import { Badge } from "@repo/ui/components/ui/badge";
+import { Button } from "@repo/ui/components/ui/button";
+import { Input } from "@repo/ui/components/ui/input";
 import {
   Music,
   ThumbsUp,
@@ -162,12 +165,15 @@ export default function ClientPage({ code, user }: ClientPageProps) {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
+                    <Badge
+                      variant="outline"
+                      className="gap-2 px-3 py-1.5 h-auto rounded-full bg-green-500/10 border-green-500/20"
+                    >
                       <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                       <span className="text-xs font-medium text-green-600 dark:text-green-400">
                         Live
                       </span>
-                    </div>
+                    </Badge>
                   </div>
                 </div>
 
@@ -199,27 +205,44 @@ export default function ClientPage({ code, user }: ClientPageProps) {
                   </div>
 
                   <div className="mt-6 flex items-center justify-center gap-3 sm:gap-4">
-                    <motion.button
+                    <motion.div
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
                     >
-                      <SkipForward className="w-4 h-4 sm:w-5 sm:h-5 rotate-180" />
-                    </motion.button>
-                    <motion.button
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="rounded-full bg-muted text-muted-foreground hover:text-foreground"
+                        type="button"
+                      >
+                        <SkipForward className="w-4 h-4 sm:w-5 sm:h-5 rotate-180" />
+                      </Button>
+                    </motion.div>
+                    <motion.div
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-linear-to-r from-primary to-accent flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/30"
                     >
-                      <Pause className="w-5 h-5 sm:w-6 sm:h-6" />
-                    </motion.button>
-                    <motion.button
+                      <Button
+                        size="icon-lg"
+                        className="rounded-full bg-linear-to-r from-primary to-accent text-primary-foreground shadow-lg shadow-primary/30"
+                        type="button"
+                      >
+                        <Pause className="w-5 h-5 sm:w-6 sm:h-6" />
+                      </Button>
+                    </motion.div>
+                    <motion.div
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
                     >
-                      <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </motion.button>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="rounded-full bg-muted text-muted-foreground hover:text-foreground"
+                        type="button"
+                      >
+                        <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </Button>
+                    </motion.div>
                     <div className="hidden sm:flex items-center gap-2 ml-4">
                       <Volume2 className="w-4 h-4 text-muted-foreground" />
                       <div className="w-20 h-1.5 rounded-full bg-muted">
@@ -252,28 +275,31 @@ export default function ClientPage({ code, user }: ClientPageProps) {
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
+                    <Input
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyDown={(e) =>
                         e.key === "Enter" && handleRequestSong()
                       }
                       placeholder="Search for a song or paste Spotify link"
-                      className="w-full rounded-xl border border-border bg-background pl-10 sm:pl-11 pr-4 py-3 sm:py-3.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
+                      className="h-auto rounded-xl border-border bg-background pl-10 sm:pl-11 pr-4 py-3 sm:py-3.5 text-sm focus-visible:ring-primary/50 focus-visible:border-primary/50"
                       disabled={!isConnected}
                     />
                   </div>
-                  <motion.button
+                  <motion.div
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={handleRequestSong}
-                    disabled={!isConnected || !searchQuery.trim()}
-                    className="rounded-xl bg-linear-to-r from-accent to-accent/80 px-5 sm:px-6 py-3 sm:py-3.5 font-semibold text-accent-foreground shadow-lg shadow-accent/20 hover:shadow-accent/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    type="button"
                   >
-                    <Plus className="w-4 h-4" />
-                    <span className="sm:inline">Add</span>
-                  </motion.button>
+                    <Button
+                      onClick={handleRequestSong}
+                      disabled={!isConnected || !searchQuery.trim()}
+                      className="h-auto rounded-xl bg-linear-to-r from-accent to-accent/80 px-5 sm:px-6 py-3 sm:py-3.5 font-semibold text-accent-foreground shadow-lg shadow-accent/20 hover:shadow-accent/30"
+                      type="button"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span className="sm:inline">Add</span>
+                    </Button>
+                  </motion.div>
                 </div>
                 <p className="mt-3 text-xs text-muted-foreground">
                   {roomConfig?.autoApprove
@@ -322,26 +348,34 @@ export default function ClientPage({ code, user }: ClientPageProps) {
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <motion.button
+                          <motion.div
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => approveSong(song.id)}
-                            className="flex items-center gap-1 rounded-lg bg-green-500/10 hover:bg-green-500/20 px-2 py-1.5 text-xs font-medium text-green-600 transition-colors"
-                            type="button"
                           >
-                            <CheckCircle className="w-3 h-3" />
-                            Approve
-                          </motion.button>
-                          <motion.button
+                            <Button
+                              onClick={() => approveSong(song.id)}
+                              variant="outline"
+                              className="h-auto rounded-lg bg-green-500/10 hover:bg-green-500/20 px-2 py-1.5 text-xs font-medium text-green-600"
+                              type="button"
+                            >
+                              <CheckCircle className="w-3 h-3" />
+                              Approve
+                            </Button>
+                          </motion.div>
+                          <motion.div
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => rejectSong(song.id)}
-                            className="flex items-center gap-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 px-2 py-1.5 text-xs font-medium text-red-600 transition-colors"
-                            type="button"
                           >
-                            <XCircle className="w-3 h-3" />
-                            Reject
-                          </motion.button>
+                            <Button
+                              onClick={() => rejectSong(song.id)}
+                              variant="outline"
+                              className="h-auto rounded-lg bg-red-500/10 hover:bg-red-500/20 px-2 py-1.5 text-xs font-medium text-red-600"
+                              type="button"
+                            >
+                              <XCircle className="w-3 h-3" />
+                              Reject
+                            </Button>
+                          </motion.div>
                         </div>
                       </motion.div>
                     ))}
@@ -398,17 +432,21 @@ export default function ClientPage({ code, user }: ClientPageProps) {
                             </p>
                           </div>
                           <div className="flex flex-col items-end gap-1">
-                            <motion.button
+                            <motion.div
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
-                              onClick={() => upvoteSong(song.id)}
-                              disabled={!isConnected}
-                              className="flex items-center gap-1 rounded-lg bg-primary/10 hover:bg-primary/20 px-2 py-1 text-xs font-medium text-primary transition-colors disabled:opacity-50"
-                              type="button"
                             >
-                              <ThumbsUp className="w-3 h-3" />
-                              {song.upvotes}
-                            </motion.button>
+                              <Button
+                                onClick={() => upvoteSong(song.id)}
+                                disabled={!isConnected}
+                                variant="outline"
+                                className="h-auto rounded-lg bg-primary/10 hover:bg-primary/20 px-2 py-1 text-xs font-medium text-primary"
+                                type="button"
+                              >
+                                <ThumbsUp className="w-3 h-3" />
+                                {song.upvotes}
+                              </Button>
+                            </motion.div>
                           </div>
                         </div>
                       </motion.div>
@@ -429,9 +467,12 @@ export default function ClientPage({ code, user }: ClientPageProps) {
                     <Users className="w-4 h-4 text-primary" />
                     <h2 className="font-semibold text-sm">In This Room</h2>
                   </div>
-                  <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                  <Badge
+                    variant="outline"
+                    className="text-xs px-2 py-1 h-auto rounded-full bg-primary/10 border-primary/20 text-primary font-medium"
+                  >
                     1 online
-                  </span>
+                  </Badge>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
