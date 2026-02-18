@@ -2,35 +2,81 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button } from "@repo/ui/components/ui/button";
-import { Card, CardContent } from "@repo/ui/components/ui/card";
-import { Separator } from "@repo/ui/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+} from "@repo/ui/components/ui/dialog";
 import {
   Music,
   Users,
   Radio,
-  Check,
-  X,
   Copy,
   ExternalLink,
   Shield,
-  Zap,
+  Plus,
+  CheckCircle,
   Clock,
-  Play,
-  ListMusic,
-  SkipForward,
-  Pause,
   Sparkles,
 } from "lucide-react";
 import { FaSpotify } from "react-icons/fa";
 
 type SpotifyConnectionStatus = "loading" | "connected" | "disconnected";
 
+type Room = {
+  id: string;
+  code: string;
+  name: string;
+  createdAt: string;
+  userCount: number;
+  isActive: boolean;
+  autoApprove: boolean;
+};
+
 export default function AdminClient() {
   const [spotifyStatus, setSpotifyStatus] =
     useState<SpotifyConnectionStatus>("loading");
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [roomName, setRoomName] = useState("");
+  const [autoApprove, setAutoApprove] = useState(false);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const rooms: Room[] = [
+    {
+      id: "1",
+      code: "PQ-7H2K",
+      name: "Friday Night Vibes",
+      createdAt: "2h ago",
+      userCount: 12,
+      isActive: true,
+      autoApprove: false,
+    },
+    {
+      id: "2",
+      code: "PQ-3X9M",
+      name: "Chill Study Session",
+      createdAt: "1d ago",
+      userCount: 0,
+      isActive: false,
+      autoApprove: true,
+    },
+    {
+      id: "3",
+      code: "PQ-5K1R",
+      name: "Weekend Party Mix",
+      createdAt: "3d ago",
+      userCount: 0,
+      isActive: false,
+      autoApprove: false,
+    },
+  ];
 
   useEffect(() => {
     let isCancelled = false;
@@ -59,42 +105,17 @@ export default function AdminClient() {
     };
   }, []);
 
-  const pendingRequests = [
-    {
-      id: 1,
-      title: "Blinding Lights",
-      artist: "The Weeknd",
-      user: "Alex",
-      time: "2m ago",
-    },
-    {
-      id: 2,
-      title: "Levitating",
-      artist: "Dua Lipa",
-      user: "Priya",
-      time: "5m ago",
-    },
-    {
-      id: 3,
-      title: "Starboy",
-      artist: "The Weeknd",
-      user: "Sam",
-      time: "8m ago",
-    },
-  ];
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
 
-  const stats = [
-    { label: "Active Users", value: "12", icon: Users },
-    { label: "Songs Played", value: "47", icon: Play },
-    { label: "Queue Length", value: "8", icon: ListMusic },
-  ];
-
-  const quickActions = [
-    { label: "Skip Song", icon: SkipForward },
-    { label: "Pause Room", icon: Pause },
-    { label: "Clear Queue", icon: X },
-    { label: "View Room", icon: ExternalLink },
-  ];
+  const handleCreateRoom = () => {
+    setRoomName("");
+    setAutoApprove(false);
+    setShowCreateDialog(false);
+  };
 
   const isSpotifyConnected = spotifyStatus === "connected";
 
@@ -147,328 +168,303 @@ export default function AdminClient() {
           </div>
         </nav>
 
-        <div className="mx-auto w-full max-w-6xl px-4 pb-16">
+        <div className="mx-auto w-full max-w-5xl px-4 pb-16">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-8 sm:mb-10"
+            className="mb-8 sm:mb-10"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.1 }}
+              className="mb-4"
             >
               <Badge
                 variant="outline"
-                className="inline-flex items-center gap-2 px-4 py-2 h-auto rounded-full bg-primary/10 border-primary/20 text-primary text-sm font-medium mb-6"
+                className="inline-flex items-center gap-2 px-4 py-2 h-auto rounded-full bg-primary/10 border-primary/20 text-primary text-sm font-medium"
               >
                 <Shield className="w-4 h-4" />
                 Admin Dashboard
               </Badge>
             </motion.div>
 
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">
-              Manage Your{" "}
-              <span className="bg-linear-to-r from-primary to-accent bg-clip-text text-transparent">
-                Music Room
-              </span>
-            </h1>
-            <p className="text-muted-foreground text-base sm:text-lg max-w-md mx-auto">
-              Control playback, moderate requests, and keep the party going
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+              <div>
+                <h1 className="text-3xl sm:text-4xl font-bold mb-2">
+                  Your{" "}
+                  <span className="bg-linear-to-r from-primary to-accent bg-clip-text text-transparent">
+                    Rooms
+                  </span>
+                </h1>
+                <p className="text-muted-foreground text-base max-w-md">
+                  Create and manage your music rooms. Enter a room to control
+                  playback and moderate requests.
+                </p>
+              </div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                <Button
+                  onClick={() => setShowCreateDialog(true)}
+                  className="h-auto rounded-xl bg-linear-to-r from-primary to-primary/80 px-5 py-3 font-semibold text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all shrink-0"
+                  type="button"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Room
+                </Button>
+              </motion.div>
+            </div>
           </motion.div>
 
-          {/* Stats */}
+          {/* Spotify warning banner */}
+          {!isSpotifyConnected && spotifyStatus !== "loading" && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.15 }}
+              className="mb-6 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3"
+            >
+              <FaSpotify className="w-4 h-4 text-amber-500 shrink-0" />
+              <p className="text-sm text-amber-600">
+                Connect Spotify to enable playback in your rooms.{" "}
+                <Link
+                  href="/api/spotify/connect"
+                  className="font-semibold underline underline-offset-2"
+                >
+                  Connect now
+                </Link>
+              </p>
+            </motion.div>
+          )}
+
+          {/* Rooms List */}
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="grid grid-cols-3 gap-3 sm:gap-4 mb-8 max-w-2xl mx-auto"
+            transition={{ duration: 0.6, delay: 0.15 }}
+            className="space-y-3"
           >
-            {stats.map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 + i * 0.05 }}
-                className="text-center"
-              >
-                <Card className="rounded-xl border-border/60 bg-card/80 backdrop-blur-xl p-4">
-                  <CardContent className="px-0">
-                    <div className="w-10 h-10 rounded-lg bg-linear-to-br from-primary/10 to-accent/10 flex items-center justify-center mx-auto mb-2">
-                      <stat.icon className="w-5 h-5 text-primary" />
+            <AnimatePresence>
+              {rooms.map((room, i) => (
+                <motion.div
+                  key={room.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ delay: 0.2 + i * 0.06 }}
+                  className="group rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl p-4 sm:p-5 shadow-xl hover:border-primary/30 hover:shadow-primary/5 transition-all"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    {/* Room icon + info */}
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0">
+                        <Radio className="w-5 h-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold truncate">
+                            {room.name}
+                          </h3>
+                          {room.isActive && (
+                            <Badge
+                              variant="outline"
+                              className="gap-1.5 px-2 py-0.5 h-auto rounded-full bg-green-500/10 border-green-500/20 text-green-600 text-xs font-medium shrink-0"
+                            >
+                              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                              Live
+                            </Badge>
+                          )}
+                          {room.autoApprove && (
+                            <Badge
+                              variant="outline"
+                              className="gap-1 px-2 py-0.5 h-auto rounded-full bg-primary/10 border-primary/20 text-primary text-xs font-medium shrink-0"
+                            >
+                              <Sparkles className="w-3 h-3" />
+                              Auto-approve
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                          <span className="font-mono font-semibold tracking-wider text-foreground/70">
+                            {room.code}
+                          </span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {room.createdAt}
+                          </span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            {room.userCount} online
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-2xl font-bold">{stat.value}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {stat.label}
-                    </p>
-                  </CardContent>
-                </Card>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => handleCopyCode(room.code)}
+                        className="rounded-lg text-muted-foreground hover:text-foreground"
+                        type="button"
+                      >
+                        {copiedCode === room.code ? (
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </Button>
+                      <Link href={`/room/${room.code}`}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg gap-1.5 text-xs font-medium"
+                          type="button"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          Open Room
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+
+            {rooms.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="rounded-2xl border border-dashed border-border/60 bg-card/40 p-12 text-center"
+              >
+                <div className="w-14 h-14 rounded-2xl bg-linear-to-br from-primary/10 to-accent/10 flex items-center justify-center mx-auto mb-4">
+                  <Radio className="w-7 h-7 text-primary/50" />
+                </div>
+                <h3 className="font-semibold mb-1">No rooms yet</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Create your first room to get started.
+                </p>
+                <Button
+                  onClick={() => setShowCreateDialog(true)}
+                  // className="h-auto rounded-xl bg-linear-to-r from-primary to-primary/80 px-5 py-2.5 font-semibold text-primary-foreground"
+                  className="bg-amber-400"
+                  type="button"
+                  variant={"outline"}
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Room
+                </Button>
               </motion.div>
-            ))}
+            )}
           </motion.div>
 
-          <div className="grid gap-6 lg:grid-cols-5">
-            {/* Main Content */}
-            <div className="lg:col-span-3 space-y-6">
-              {/* Room Controls Card */}
-              <motion.div
-                initial={{ opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.15 }}
-                className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-primary/5"
-              >
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                    <Radio className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-semibold text-foreground">
-                      Room Controls
-                    </h2>
-                    <p className="text-xs text-muted-foreground">
-                      Manage your music room
-                    </p>
-                  </div>
-                  <div
-                    className={`ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full border ${
-                      isSpotifyConnected
-                        ? "bg-green-500/10 border-green-500/20"
-                        : "bg-amber-500/10 border-amber-500/20"
-                    }`}
-                  >
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        isSpotifyConnected ? "bg-green-500" : "bg-amber-500"
-                      }`}
-                    />
-                    <span
-                      className={`text-xs font-medium ${
-                        isSpotifyConnected ? "text-green-600" : "text-amber-600"
-                      }`}
-                    >
-                      {isSpotifyConnected ? "Connected" : "Not Connected"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Room Info */}
-                <div className="grid gap-4 sm:grid-cols-2 mb-6">
-                  <div className="rounded-xl border border-border/50 bg-background/50 p-4">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Room Code
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <p className="font-mono text-xl font-bold tracking-wider">
-                        PQ-7H2K
-                      </p>
-                      <Button variant="ghost" size="icon-sm">
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-border/50 bg-background/50 p-4">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Spotify Status
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          isSpotifyConnected ? "bg-green-500" : "bg-amber-500"
-                        }`}
-                      />
-                      <p className="font-semibold">
-                        {isSpotifyConnected ? "Linked" : "Not linked"}
-                      </p>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {isSpotifyConnected
-                        ? "Ready to start playing"
-                        : "Connect to start playing"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <Button
-                      className="flex-1 h-auto rounded-xl bg-linear-to-r from-primary to-primary/80 px-5 py-3.5 font-semibold text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
-                      type="button"
-                    >
-                      <Zap className="w-4 h-4" />
-                      Create Room
-                    </Button>
-                  </motion.div>
-
-                  <Button
-                    variant="outline"
-                    className="flex-1 py-3.5 h-auto"
-                    size="lg"
-                  >
-                    <X className="w-4 h-4" />
-                    End Room
-                  </Button>
-                </div>
-
-                <Separator className="mt-6 border-border/50" />
-                <div className="pt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                    <span>Spotify Premium required</span>
-                  </div>
-                  <Link
-                    href="/join"
-                    className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-                  >
-                    Join a room instead
-                  </Link>
-                </div>
-              </motion.div>
-
-              {/* Quick Actions */}
-              <motion.div
-                initial={{ opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="grid grid-cols-2 sm:grid-cols-4 gap-3"
-              >
-                {quickActions.map((action, i) => (
-                  <motion.div
-                    key={action.label}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.25 + i * 0.05 }}
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <Button
-                      variant="outline"
-                      className="group h-auto w-full rounded-xl border-border/50 bg-card/50 backdrop-blur-sm p-4 hover:border-primary/30 hover:bg-card/80 transition-all flex-col"
-                      type="button"
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-linear-to-br from-primary/10 to-accent/10 flex items-center justify-center mx-auto mb-2 group-hover:from-primary/20 group-hover:to-accent/20 transition-colors">
-                        <action.icon className="w-5 h-5 text-primary" />
-                      </div>
-                      <p className="text-sm font-medium">{action.label}</p>
-                    </Button>
-                  </motion.div>
-                ))}
-              </motion.div>
-            </div>
-
-            {/* Sidebar - Moderation */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Moderation Card */}
-              <motion.div
-                initial={{ opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.25 }}
-                className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl overflow-hidden shadow-xl"
-              >
-                <div className="p-4 border-b border-border/50 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-primary" />
-                    <h2 className="font-semibold">Moderation</h2>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className="text-xs px-2.5 py-1 h-auto bg-primary/10 border-primary/20 text-primary font-medium"
-                  >
-                    {pendingRequests.length} pending
-                  </Badge>
-                </div>
-
-                <div className="p-3 space-y-2 max-h-[400px] overflow-y-auto">
-                  {pendingRequests.map((request, index) => (
-                    <motion.div
-                      key={request.id}
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.3 + index * 0.05 }}
-                      className="rounded-xl border border-border/50 bg-background/50 p-3"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-linear-to-br from-primary/10 to-accent/10 flex items-center justify-center shrink-0">
-                          <Music className="w-4 h-4 text-primary/60" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">
-                            {request.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {request.artist}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            by {request.user} • {request.time}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 mt-3">
-                        <Button
-                          variant="outline"
-                          className="bg-green-500 hover:bg-green-700/90 text-white flex-1"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                          Approve
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="bg-red-500 hover:bg-red-700/90 text-white flex-1"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                          Reject
-                        </Button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-
-              {/* Room Activity */}
-              <motion.div
-                initial={{ opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-                className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl p-5 shadow-xl"
-              >
-                <div className="flex items-center gap-2 mb-4">
-                  <Clock className="w-4 h-4 text-primary" />
-                  <h2 className="font-semibold">Room Activity</h2>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-sm text-muted-foreground">
-                      Session Time
-                    </span>
-                    <span className="font-semibold">1h 23m</span>
-                  </div>
-                  <Separator className="bg-border/50" />
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-sm text-muted-foreground">
-                      Total Votes
-                    </span>
-                    <span className="font-semibold">156</span>
-                  </div>
-                  <Separator className="bg-border/50" />
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-sm text-muted-foreground">
-                      Requests
-                    </span>
-                    <span className="font-semibold">24</span>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          </div>
+          {/* Footer hint */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="mt-8 text-center text-xs text-muted-foreground"
+          >
+            <Link
+              href="/join"
+              className="text-primary hover:text-primary/80 transition-colors font-medium"
+            >
+              Join a room instead
+            </Link>{" "}
+            &mdash; Spotify Premium required for playback
+          </motion.p>
         </div>
       </div>
+
+      {/* Create Room Dialog */}
+      {/* <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                <Radio className="w-4 h-4 text-primary" />
+              </div>
+              Create a New Room
+            </DialogTitle>
+            <DialogDescription>
+              Set up a new music room. Share the room code with your guests so
+              they can join and request songs.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="room-name">Room Name</Label>
+              <Input
+                id="room-name"
+                value={roomName}
+                onChange={(e) => setRoomName(e.target.value)}
+                placeholder="e.g. Friday Night Vibes"
+                className="rounded-xl"
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">Auto-approve songs</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Skip manual approval for song requests
+                </p>
+              </div>
+              <Switch
+                checked={autoApprove}
+                onCheckedChange={setAutoApprove}
+              />
+            </div>
+
+            <div className="rounded-xl border border-border/50 bg-background/50 px-4 py-3 flex items-center gap-2 text-xs text-muted-foreground">
+              <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+              A unique room code will be generated automatically.
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowCreateDialog(false)}
+              className="rounded-xl"
+              type="button"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateRoom}
+              disabled={!roomName.trim()}
+              className="rounded-xl bg-linear-to-r from-primary to-primary/80 font-semibold text-primary-foreground shadow-lg shadow-primary/20"
+              type="button"
+            >
+              <Plus className="w-4 h-4" />
+              Create Room
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog> */}
+
+      <Dialog>
+        <DialogTrigger>Open</DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Are you absolutely sure?</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete your
+              account and remove your data from our servers.
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
