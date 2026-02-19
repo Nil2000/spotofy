@@ -1,8 +1,7 @@
 import "@repo/ui/globals.css";
-// import "./globals.css";
 import type { Metadata } from "next";
 import { Lora, Fira_Code, Geist } from "next/font/google";
-import { ThemeProvider } from "../components/theme-provider";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const geist = Geist({ subsets: ["latin"] });
 const lora = Lora({ subsets: ["latin"] });

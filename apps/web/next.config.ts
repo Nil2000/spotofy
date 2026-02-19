@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  transpilePackages: ["@repo/ui"],
 };
 
 export default nextConfig;

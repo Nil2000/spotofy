@@ -12,7 +12,6 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogTrigger,
 } from "@repo/ui/components/ui/dialog";
 import {
   Music,
@@ -27,6 +26,9 @@ import {
   Sparkles,
 } from "lucide-react";
 import { FaSpotify } from "react-icons/fa";
+import { Label } from "@repo/ui/components/ui/label";
+import { Input } from "@repo/ui/components/ui/input";
+import { Switch } from "@repo/ui/components/ui/switch";
 
 type SpotifyConnectionStatus = "loading" | "connected" | "disconnected";
 
@@ -385,7 +387,7 @@ export default function AdminClient() {
       </div>
 
       {/* Create Room Dialog */}
-      {/* <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -419,15 +421,12 @@ export default function AdminClient() {
                   Skip manual approval for song requests
                 </p>
               </div>
-              <Switch
-                checked={autoApprove}
-                onCheckedChange={setAutoApprove}
-              />
+              <Switch checked={autoApprove} onCheckedChange={setAutoApprove} />
             </div>
 
             <div className="rounded-xl border border-border/50 bg-background/50 px-4 py-3 flex items-center gap-2 text-xs text-muted-foreground">
-              <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
-              A unique room code will be generated automatically.
+              <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />A unique
+              room code will be generated automatically.
             </div>
           </div>
 
@@ -450,19 +449,6 @@ export default function AdminClient() {
               Create Room
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog> */}
-
-      <Dialog>
-        <DialogTrigger>Open</DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Are you absolutely sure?</DialogTitle>
-            <DialogDescription>
-              This action cannot be undone. This will permanently delete your
-              account and remove your data from our servers.
-            </DialogDescription>
-          </DialogHeader>
         </DialogContent>
       </Dialog>
     </main>

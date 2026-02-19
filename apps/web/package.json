@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@prisma/client": "^7.3.0",
-    "@radix-ui/react-slot": "^1.2.4",
+    "@base-ui/react": "^1.1.0",
     "@repo/db": "*",
     "@repo/ui": "*",
     "better-auth": "^1.4.17",
