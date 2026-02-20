@@ -1,4 +1,5 @@
 import "@repo/ui/globals.css";
+
 import type { Metadata } from "next";
 import { Lora, Fira_Code, Geist } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -20,9 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={
-          geist.className + " " + lora.className + " " + firacode.className
-        }
+        className={`${geist.className} ${lora.className} ${firacode.className}`}
       >
         <ThemeProvider
           attribute="class"
