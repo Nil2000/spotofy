@@ -14,7 +14,6 @@ import {
   DialogFooter,
 } from "@repo/ui/components/ui/dialog";
 import {
-  Music,
   Users,
   Radio,
   Copy,
@@ -29,6 +28,7 @@ import { FaSpotify } from "react-icons/fa";
 import { Label } from "@repo/ui/components/ui/label";
 import { Input } from "@repo/ui/components/ui/input";
 import { Switch } from "@repo/ui/components/ui/switch";
+import Navbar from "@/components/navbar";
 
 type SpotifyConnectionStatus = "loading" | "connected" | "disconnected";
 
@@ -127,48 +127,7 @@ export default function AdminClient() {
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_bottom_left,var(--tw-gradient-stops))] from-accent/10 via-transparent to-transparent pointer-events-none" />
 
       <div className="relative">
-        {/* Navigation */}
-        <nav className="p-4 sm:p-6 flex items-center justify-between">
-          <Link href="/" className="inline-flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/25 group-hover:shadow-primary/40 transition-shadow">
-              <Music className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold bg-linear-to-r from-primary to-accent bg-clip-text text-transparent">
-              PulseQ
-            </span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <Link href="/">
-              <Button variant="outline">Home</Button>
-            </Link>
-
-            {spotifyStatus === "connected" ? (
-              <Button
-                className="border-green-500/40 bg-green-500/15 text-green-600 hover:bg-green-500/25"
-                variant="outline"
-                disabled
-              >
-                <FaSpotify className="h-4 w-4" />
-                Spotify Connected
-              </Button>
-            ) : spotifyStatus === "loading" ? (
-              <Button variant="outline" disabled>
-                <FaSpotify className="h-4 w-4" />
-                Checking Spotify...
-              </Button>
-            ) : (
-              <Link href="/api/spotify/connect">
-                <Button
-                  className="bg-green-500 text-white hover:bg-green-700/90"
-                  variant="outline"
-                >
-                  <FaSpotify className="h-4 w-4" />
-                  Connect Spotify
-                </Button>
-              </Link>
-            )}
-          </div>
-        </nav>
+        <Navbar variant="admin" spotifyStatus={spotifyStatus} />
 
         <div className="mx-auto w-full max-w-5xl px-4 pb-16">
           {/* Header */}
@@ -356,8 +315,7 @@ export default function AdminClient() {
                 </p>
                 <Button
                   onClick={() => setShowCreateDialog(true)}
-                  // className="h-auto rounded-xl bg-linear-to-r from-primary to-primary/80 px-5 py-2.5 font-semibold text-primary-foreground"
-                  className="bg-amber-400"
+                  className="h-auto rounded-xl bg-linear-to-r from-primary to-primary/80 px-5 py-2.5 font-semibold text-primary-foreground"
                   type="button"
                   variant={"outline"}
                 >

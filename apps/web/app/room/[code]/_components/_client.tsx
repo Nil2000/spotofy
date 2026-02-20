@@ -12,8 +12,6 @@ import {
   Plus,
   Users,
   Radio,
-  LogOut,
-  Home,
   Search,
   Pause,
   SkipForward,
@@ -26,6 +24,7 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
+import Navbar from "@/components/navbar";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import type { JWTPayload, SongPayload } from "@/types/websocket";
 
@@ -93,53 +92,12 @@ export default function ClientPage({ code, user }: ClientPageProps) {
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_bottom_right,var(--tw-gradient-stops))] from-accent/8 via-transparent to-transparent pointer-events-none" />
 
       <div className="relative">
-        {/* Navigation */}
-        <nav className="sticky top-0 z-50 backdrop-blur-xl bg-background/70 border-b border-border/50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-14 sm:h-16">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <Link href="/" className="flex items-center gap-2 group">
-                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-linear-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/25">
-                    <Music className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
-                  </div>
-                  <span className="text-lg font-bold bg-linear-to-r from-primary to-accent bg-clip-text text-transparent hidden sm:block">
-                    PulseQ
-                  </span>
-                </Link>
-                <div className="h-6 w-px bg-border hidden sm:block" />
-                <div className="flex items-center gap-2">
-                  {getConnectionStatusIcon()}
-                  <span className="font-mono text-sm font-semibold tracking-wider">
-                    {code}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {error && (
-                  <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-xs">
-                    <AlertCircle className="w-3 h-3" />
-                    {error}
-                  </div>
-                )}
-                <Link
-                  href="/join"
-                  className="flex items-center gap-1.5 sm:gap-2 rounded-lg border border-border bg-card/80 px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-medium hover:bg-muted hover:border-primary/30 transition-all"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="hidden sm:inline">Leave</span>
-                </Link>
-                <Link
-                  href="/"
-                  className="flex items-center gap-1.5 sm:gap-2 rounded-lg bg-primary/10 border border-primary/20 px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-medium text-primary hover:bg-primary/20 transition-all"
-                >
-                  <Home className="w-4 h-4" />
-                  <span className="hidden sm:inline">Home</span>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </nav>
+        <Navbar
+          variant="room"
+          roomCode={code}
+          connectionIcon={getConnectionStatusIcon()}
+          error={error}
+        />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

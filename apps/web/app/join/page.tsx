@@ -9,7 +9,6 @@ import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Input } from "@repo/ui/components/ui/input";
 import { Separator } from "@repo/ui/components/ui/separator";
 import {
-  Music,
   ArrowRight,
   Users,
   ThumbsUp,
@@ -17,7 +16,9 @@ import {
   PartyPopper,
   Sparkles,
   QrCode,
+  Music,
 } from "lucide-react";
+import Navbar from "@/components/navbar";
 
 export default function JoinPage() {
   const [code, setCode] = useState("");
@@ -60,17 +61,7 @@ export default function JoinPage() {
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_bottom_left,var(--tw-gradient-stops))] from-accent/10 via-transparent to-transparent pointer-events-none" />
 
       <div className="relative">
-        {/* Navigation */}
-        <nav className="p-4 sm:p-6">
-          <Link href="/" className="inline-flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/25 group-hover:shadow-primary/40 transition-shadow">
-              <Music className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold bg-linear-to-r from-primary to-accent bg-clip-text text-transparent">
-              PulseQ
-            </span>
-          </Link>
-        </nav>
+        <Navbar variant="simple" />
 
         <div className="mx-auto flex min-h-[calc(100vh-88px)] w-full max-w-4xl flex-col px-4 pb-16">
           <div className="flex-1 flex flex-col justify-center">

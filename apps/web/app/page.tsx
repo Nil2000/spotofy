@@ -7,7 +7,6 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Separator } from "@repo/ui/components/ui/separator";
 import {
-  Music,
   Vote,
   Shield,
   Zap,
@@ -19,7 +18,9 @@ import {
   Sparkles,
   Radio,
   Heart,
+  Music,
 } from "lucide-react";
+import Navbar from "@/components/navbar";
 
 export default function Page() {
   const fadeInUp = {
@@ -114,39 +115,7 @@ export default function Page() {
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_bottom_right,var(--tw-gradient-stops))] from-accent/10 via-transparent to-transparent pointer-events-none" />
 
       <div className="relative">
-        {/* Navigation */}
-        <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-background/70 border-b border-border/50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <Link href="/" className="flex items-center gap-2 group">
-                <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/25 group-hover:shadow-primary/40 transition-shadow">
-                  <Music className="w-5 h-5 text-primary-foreground" />
-                </div>
-                <span className="text-xl font-bold bg-linear-to-r from-primary to-accent bg-clip-text">
-                  PulseQ
-                </span>
-              </Link>
-              <div className="flex items-center gap-2 sm:gap-4">
-                <Link
-                  href="/join"
-                  className="hidden sm:inline-flex px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Join Room
-                </Link>
-                <Link href="/admin">
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <Button className="px-4 py-2 shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all">
-                      Create Room
-                    </Button>
-                  </motion.div>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </nav>
+        <Navbar variant="home" />
 
         {/* Hero Section */}
         <section className="min-h-screen flex items-center justify-center px-4 pt-20 pb-16">
