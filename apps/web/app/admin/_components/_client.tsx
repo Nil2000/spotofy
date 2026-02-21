@@ -126,10 +126,42 @@ export default function AdminClient() {
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-primary/15 via-background to-background pointer-events-none" />
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_bottom_left,var(--tw-gradient-stops))] from-accent/10 via-transparent to-transparent pointer-events-none" />
 
-      <div className="relative">
-        <Navbar variant="admin" spotifyStatus={spotifyStatus} />
+      <div className="relative z-10">
+        <Navbar
+          className="p-4 sm:p-6 flex items-center justify-between"
+          containerClassName="w-full"
+        >
+          <Link href="/">
+            <Button variant="outline">Home</Button>
+          </Link>
+          {spotifyStatus === "connected" ? (
+            <Button
+              className="border-green-500/40 bg-green-500/15 text-green-600 hover:bg-green-500/25"
+              variant="outline"
+              disabled
+            >
+              <FaSpotify className="h-4 w-4" />
+              <span className="hidden sm:inline">Spotify Connected</span>
+            </Button>
+          ) : spotifyStatus === "loading" ? (
+            <Button variant="outline" disabled>
+              <FaSpotify className="h-4 w-4" />
+              <span className="hidden sm:inline">Checking Spotify...</span>
+            </Button>
+          ) : (
+            <Link href="/api/spotify/connect">
+              <Button
+                className="bg-green-500 text-white hover:bg-green-700/90"
+                variant="outline"
+              >
+                <FaSpotify className="h-4 w-4" />
+                <span className="hidden sm:inline">Connect Spotify</span>
+              </Button>
+            </Link>
+          )}
+        </Navbar>
 
-        <div className="mx-auto w-full max-w-5xl px-4 pb-16">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: 18 }}

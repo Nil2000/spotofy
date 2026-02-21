@@ -18,11 +18,12 @@ import {
   Volume2,
   Clock,
   Crown,
-  AlertCircle,
   CheckCircle,
   XCircle,
   Wifi,
   WifiOff,
+  LogOut,
+  Home,
 } from "lucide-react";
 import Navbar from "@/components/navbar";
 import { useWebSocket } from "@/hooks/useWebSocket";
@@ -93,11 +94,37 @@ export default function ClientPage({ code, user }: ClientPageProps) {
 
       <div className="relative">
         <Navbar
-          variant="room"
-          roomCode={code}
-          connectionIcon={getConnectionStatusIcon()}
-          error={error}
-        />
+          logoSize="sm"
+          className="sticky top-0 z-50 backdrop-blur-xl bg-background/70 border-b border-border/50"
+          leftContent={
+            <div className="flex items-center gap-2">
+              {getConnectionStatusIcon()}
+              <span className="font-mono text-sm font-semibold tracking-wider">
+                {code}
+              </span>
+            </div>
+          }
+        >
+          {error && (
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-xs">
+              {error}
+            </div>
+          )}
+          <Link
+            href="/join"
+            className="flex items-center gap-1.5 sm:gap-2 rounded-lg border border-border bg-card/80 px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-medium hover:bg-muted hover:border-primary/30 transition-all"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Leave</span>
+          </Link>
+          <Link
+            href="/"
+            className="flex items-center gap-1.5 sm:gap-2 rounded-lg bg-primary/10 border border-primary/20 px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-medium text-primary hover:bg-primary/20 transition-all"
+          >
+            <Home className="w-4 h-4" />
+            <span className="hidden sm:inline">Home</span>
+          </Link>
+        </Navbar>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
