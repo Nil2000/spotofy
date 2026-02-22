@@ -1,7 +1,9 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { prisma } from "@repo/db";
 import ClientPage from "./_components/_client";
+import SpotifyWebPlayer from "./_components/spotify-player";
 
 type RoomPageProps = {
   params: { code: string };
@@ -25,5 +27,28 @@ export default async function RoomPage({ params }: RoomPageProps) {
     isAdmin: false, // This can be extended based on your admin logic
   };
 
-  return <ClientPage code={code} user={user} />;
+  let spotifyToken: string | null = null;
+
+  if (user.isAdmin) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        spotifyAccessToken: true,
+        isSpotifyConnected: true,
+      },
+    });
+
+    if (dbUser?.isSpotifyConnected && dbUser.spotifyAccessToken) {
+      spotifyToken = dbUser.spotifyAccessToken;
+    }
+  }
+
+  return (
+    <>
+      <ClientPage code={code} user={user} />
+      {user.isAdmin && spotifyToken && (
+        <SpotifyWebPlayer token={spotifyToken} />
+      )}
+    </>
+  );
 }

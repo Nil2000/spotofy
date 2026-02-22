@@ -42,9 +42,11 @@ type Room = {
   autoApprove: boolean;
 };
 
-export default function AdminClient() {
-  const [spotifyStatus, setSpotifyStatus] =
-    useState<SpotifyConnectionStatus>("loading");
+export default function AdminClient({
+  isSpotifyConnected,
+}: {
+  isSpotifyConnected: boolean;
+}) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [roomName, setRoomName] = useState("");
   const [autoApprove, setAutoApprove] = useState(false);
@@ -80,33 +82,6 @@ export default function AdminClient() {
     },
   ];
 
-  useEffect(() => {
-    let isCancelled = false;
-
-    const checkSpotifyConnection = async () => {
-      try {
-        const response = await fetch("/api/spotify/token", {
-          method: "GET",
-          cache: "no-store",
-        });
-
-        if (!isCancelled) {
-          setSpotifyStatus(response.ok ? "connected" : "disconnected");
-        }
-      } catch {
-        if (!isCancelled) {
-          setSpotifyStatus("disconnected");
-        }
-      }
-    };
-
-    checkSpotifyConnection();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
-
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
@@ -118,8 +93,6 @@ export default function AdminClient() {
     setAutoApprove(false);
     setShowCreateDialog(false);
   };
-
-  const isSpotifyConnected = spotifyStatus === "connected";
 
   return (
     <main className="min-h-screen bg-background text-foreground overflow-hidden font-sans">
@@ -134,7 +107,7 @@ export default function AdminClient() {
           <Link href="/">
             <Button variant="outline">Home</Button>
           </Link>
-          {spotifyStatus === "connected" ? (
+          {isSpotifyConnected ? (
             <Button
               className="border-green-500/40 bg-green-500/15 text-green-600 hover:bg-green-500/25"
               variant="outline"
@@ -142,11 +115,6 @@ export default function AdminClient() {
             >
               <FaSpotify className="h-4 w-4" />
               <span className="hidden sm:inline">Spotify Connected</span>
-            </Button>
-          ) : spotifyStatus === "loading" ? (
-            <Button variant="outline" disabled>
-              <FaSpotify className="h-4 w-4" />
-              <span className="hidden sm:inline">Checking Spotify...</span>
             </Button>
           ) : (
             <Link href="/api/spotify/connect">
@@ -215,7 +183,7 @@ export default function AdminClient() {
           </motion.div>
 
           {/* Spotify warning banner */}
-          {!isSpotifyConnected && spotifyStatus !== "loading" && (
+          {!isSpotifyConnected && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}

@@ -56,7 +56,7 @@ export default function ClientPage({ code, user }: ClientPageProps) {
     if (isConnected) {
       joinRoom(code, user);
     }
-  }, [isConnected, code, user, joinRoom]);
+  }, [isConnected, code, user, joinRoom, isAdmin]);
 
   const handleRequestSong = () => {
     if (!searchQuery.trim()) return;
@@ -388,7 +388,7 @@ export default function ClientPage({ code, user }: ClientPageProps) {
                   </span>
                 </div>
 
-                <div className="p-3 space-y-2 max-h-[320px] sm:max-h-[400px] overflow-y-auto">
+                <div className="p-3 space-y-2 max-h-80 sm:max-h-100 overflow-y-auto">
                   {queue.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                       <Music className="w-8 h-8 mx-auto mb-2 opacity-50" />
