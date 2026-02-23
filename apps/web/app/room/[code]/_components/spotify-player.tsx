@@ -1,10 +1,30 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+
+type SpotifyPlayer = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addListener: (event: string, cb: (arg: any) => void) => void;
+  connect: () => void;
+  disconnect: () => void;
+  getCurrentState: () => Promise<SpotifyPlaybackState | null>;
+};
+
+type SpotifyPlaybackState = {
+  paused: boolean;
+  track_window: { current_track: SpotifyTrack };
+};
 
 declare global {
   interface Window {
-    Spotify: any;
+    Spotify: {
+      Player: new (options: {
+        name: string;
+        getOAuthToken: (cb: (token: string) => void) => void;
+        volume: number;
+      }) => SpotifyPlayer;
+    };
     onSpotifyWebPlaybackSDKReady?: () => void;
   }
 }
@@ -20,7 +40,7 @@ type Props = {
 };
 
 export default function SpotifyWebPlayer({ token }: Props) {
-  const playerRef = useRef<any>(null);
+  const playerRef = useRef<SpotifyPlayer | null>(null);
   const [isPaused, setPaused] = useState(false);
   const [isActive, setActive] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<SpotifyTrack | null>(null);
@@ -54,15 +74,16 @@ export default function SpotifyWebPlayer({ token }: Props) {
         },
       );
 
-      player.addListener("player_state_changed", (state: any) => {
-        if (!state) {
+      player.addListener("player_state_changed", (state) => {
+        const s = state as SpotifyPlaybackState | null;
+        if (!s) {
           setActive(false);
           return;
         }
-        setCurrentTrack(state.track_window.current_track);
-        setPaused(state.paused);
-        player.getCurrentState().then((state: any) => {
-          setActive(!!state);
+        setCurrentTrack(s.track_window.current_track);
+        setPaused(s.paused);
+        player.getCurrentState().then((currentState) => {
+          setActive(!!currentState);
         });
       });
 
@@ -88,10 +109,12 @@ export default function SpotifyWebPlayer({ token }: Props) {
   return (
     <div className="container">
       <div className="main-wrapper">
-        <img
+        <Image
           src={currentTrack.album.images[0]?.url ?? ""}
           className="now-playing__cover"
           alt=""
+          width={300}
+          height={300}
         />
         <div className="now-playing__side">
           <div className="now-playing__name">{currentTrack.name}</div>

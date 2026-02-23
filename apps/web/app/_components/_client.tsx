@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { Badge } from "@repo/ui/components/ui/badge";
