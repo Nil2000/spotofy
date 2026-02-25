@@ -128,13 +128,26 @@ export type JoinedRoomMessage = {
   };
 };
 
+export type ListUsersMessage = {
+  type: "list_users";
+  payload: {
+    users: {
+      userId: string;
+      username: string;
+      email: string;
+      isAdmin: boolean;
+    }[];
+  };
+};
+
 export type ServerMessage =
   | QueueUpdateMessage
   | SongRequestedMessage
   | SongApprovedMessage
   | SongRejectedMessage
   | ErrorMessage
-  | JoinedRoomMessage;
+  | JoinedRoomMessage
+  | ListUsersMessage;
 
 // --- WebSocket Hook Types ---
 

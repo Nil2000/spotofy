@@ -47,6 +47,7 @@ export default function ClientPage({ code, user }: ClientPageProps) {
     upvoteSong,
     approveSong,
     rejectSong,
+    users,
   } = useWebSocket();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -456,18 +457,29 @@ export default function ClientPage({ code, user }: ClientPageProps) {
                     variant="outline"
                     className="text-xs px-2 py-1 h-auto rounded-full bg-primary/10 border-primary/20 text-primary font-medium"
                   >
-                    1 online
+                    {users.length} online
                   </Badge>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 border border-border/50">
-                    <div className="w-2 h-2 rounded-full bg-primary" />
-                    <span className="text-xs font-medium">
-                      {user.username} (you)
-                    </span>
-                    {isAdmin && <Crown className="w-3 h-3 text-yellow-500" />}
-                  </div>
+                  {users.map((u) => {
+                    const isSelf = u.userId === user.userId;
+                    return (
+                      <div
+                        key={u.userId}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 border border-border/50"
+                      >
+                        <div className="w-2 h-2 rounded-full bg-primary" />
+                        <span className="text-xs font-medium">
+                          {u.username}
+                          {isSelf && " (you)"}
+                        </span>
+                        {u.isAdmin && (
+                          <Crown className="w-3 h-3 text-yellow-500" />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </motion.aside>
             </div>
