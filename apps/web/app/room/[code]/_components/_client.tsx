@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useDebounce } from "react-use";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button } from "@repo/ui/components/ui/button";
-import { Input } from "@repo/ui/components/ui/input";
 import {
   Music,
   ThumbsUp,
@@ -28,6 +28,15 @@ import {
 import Navbar from "@/components/navbar";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import type { JWTPayload, SongPayload } from "@/types/websocket";
+import type { SearchResult } from "@/app/api/spotify/search/route";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@repo/ui/components/ui/combobox";
 
 type ClientPageProps = {
   code: string;
@@ -52,6 +61,8 @@ export default function ClientPage({ code, user }: ClientPageProps) {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isAdmin] = useState(user.isAdmin);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
     if (isConnected) {
@@ -59,19 +70,56 @@ export default function ClientPage({ code, user }: ClientPageProps) {
     }
   }, [isConnected, code, user, joinRoom, isAdmin]);
 
+  useDebounce(
+    async () => {
+      if (!searchQuery.trim()) {
+        setSearchResults([]);
+        return;
+      }
+      setSearchLoading(true);
+      try {
+        const res = await fetch(
+          `/api/spotify/search?q=${encodeURIComponent(searchQuery)}`,
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setSearchResults(data.results);
+        } else {
+          setSearchResults([]);
+        }
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    },
+    400,
+    [searchQuery],
+  );
+
+  const handleSelectResult = (value: string | null) => {
+    const result = searchResults.find((r) => r.id === value);
+    if (!result) return;
+    requestSong({
+      name: result.name,
+      artist: result.artist,
+      url: result.url,
+      imgUrl: result.imgUrl,
+    });
+    setSearchQuery("");
+    setSearchResults([]);
+  };
+
   const handleRequestSong = () => {
     if (!searchQuery.trim()) return;
-
-    // Parse song info from search query (this is simplified - in real app you'd search Spotify API)
-    const mockSong: SongPayload = {
+    requestSong({
       name: searchQuery,
       artist: "Unknown Artist",
       url: "",
       imgUrl: "",
-    };
-
-    requestSong(mockSong);
+    });
     setSearchQuery("");
+    setSearchResults([]);
   };
 
   const getConnectionStatusIcon = () => {
@@ -259,18 +307,90 @@ export default function ClientPage({ code, user }: ClientPageProps) {
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) =>
-                        e.key === "Enter" && handleRequestSong()
-                      }
-                      placeholder="Search for a song or paste Spotify link"
-                      className="h-auto rounded-xl border-border bg-background pl-10 sm:pl-11 pr-4 py-3 sm:py-3.5 text-sm focus-visible:ring-primary/50 focus-visible:border-primary/50"
+                  <div className="flex-1">
+                    {/* <Combobox
                       disabled={!isConnected}
-                    />
+                      inputValue={searchQuery}
+                      onInputValueChange={setSearchQuery}
+                      onValueChange={handleSelectResult}
+                    >
+                      <ComboboxEmpty>No songs found.</ComboboxEmpty>
+                      <ComboboxInput
+                        showTrigger={false}
+                        showClear={!!searchQuery}
+                        placeholder="Search for a song..."
+                        className="w-full rounded-xl"
+                      />
+                      <ComboboxContent>
+                        <ComboboxList>
+                          {searchLoading ? (
+                            <div className="flex items-center justify-center py-4">
+                              <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                            </div>
+                          ) : (
+                            <>
+                              {searchResults.map((result) => (
+                                <ComboboxItem key={result.id} value={result.id}>
+                                  {result.imgUrl ? (
+                                    <img
+                                      src={result.imgUrl}
+                                      alt={result.album}
+                                      className="w-8 h-8 rounded-md object-cover shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                      <Music className="w-3.5 h-3.5 text-muted-foreground" />
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">
+                                      {result.name}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {result.artist} · {result.album}
+                                    </p>
+                                  </div>
+                                </ComboboxItem>
+                              ))}
+                            </>
+                          )}
+                        </ComboboxList>
+                      </ComboboxContent>
+                    </Combobox> */}
+                    <Combobox items={searchResults}>
+                      <ComboboxInput
+                        placeholder="Search for a song..."
+                        className="w-full rounded-xl"
+                      />
+                      <ComboboxContent>
+                        <ComboboxEmpty>No items found</ComboboxEmpty>
+                        <ComboboxList>
+                          {searchResults.map((result) => (
+                            <ComboboxItem key={result.id} value={result.id}>
+                              {result.imgUrl ? (
+                                <img
+                                  src={result.imgUrl}
+                                  alt={result.album}
+                                  className="w-8 h-8 rounded-md object-cover shrink-0"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                  <Music className="w-3.5 h-3.5 text-muted-foreground" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">
+                                  {result.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {result.artist} · {result.album}
+                                </p>
+                              </div>
+                            </ComboboxItem>
+                          ))}
+                        </ComboboxList>
+                      </ComboboxContent>
+                    </Combobox>
                   </div>
                   <motion.div
                     whileHover={{ scale: 1.02 }}

@@ -39,11 +39,27 @@ type Props = {
   token: string;
 };
 
+async function fetchFreshToken(): Promise<string | null> {
+  try {
+    const res = await fetch("/api/spotify/token");
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.accessToken ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export default function SpotifyWebPlayer({ token }: Props) {
   const playerRef = useRef<SpotifyPlayer | null>(null);
+  const tokenRef = useRef<string>(token);
   const [isPaused, setPaused] = useState(false);
   const [isActive, setActive] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<SpotifyTrack | null>(null);
+
+  useEffect(() => {
+    tokenRef.current = token;
+  }, [token]);
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -55,8 +71,11 @@ export default function SpotifyWebPlayer({ token }: Props) {
     window.onSpotifyWebPlaybackSDKReady = () => {
       const player = new window.Spotify.Player({
         name: "Web Playback SDK",
-        getOAuthToken: (cb: (token: string) => void) => {
-          cb(token);
+        getOAuthToken: async (cb: (token: string) => void) => {
+          const fresh = await fetchFreshToken();
+          const resolved = fresh ?? tokenRef.current;
+          tokenRef.current = resolved;
+          cb(resolved);
         },
         volume: 0.5,
       });
@@ -85,6 +104,10 @@ export default function SpotifyWebPlayer({ token }: Props) {
         player.getCurrentState().then((currentState) => {
           setActive(!!currentState);
         });
+      });
+
+      player.addListener("authentication_error", (error) => {
+        console.error("Authentication error:", error);
       });
 
       player.connect();
