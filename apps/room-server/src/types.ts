@@ -136,10 +136,18 @@ export type JoinedRoomMessage = {
   };
 };
 
+export type ListUsersMessage = {
+  type: "list_users";
+  payload: {
+    users: JWTPayload[];
+  };
+};
+
 export type OutgoingMessage =
   | QueueUpdateMessage
   | SongRequestedMessage
   | SongApprovedMessage
   | SongRejectedMessage
   | ErrorMessage
-  | JoinedRoomMessage;
+  | JoinedRoomMessage
+  | ListUsersMessage;

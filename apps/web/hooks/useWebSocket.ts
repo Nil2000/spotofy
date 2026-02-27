@@ -17,9 +17,15 @@ export function useWebSocket() {
   const [roomConfig, setRoomConfig] = useState<RoomConfig | null>(null);
   const [queue, setQueue] = useState<SongData[]>([]);
   const [pendingRequests, setPendingRequests] = useState<SongData[]>([]);
+  const [users, setUsers] = useState<JWTPayload[]>([]);
 
   const handleServerMessage = useCallback((message: ServerMessage) => {
     switch (message.type) {
+      case "list_users": {
+        setUsers(message.payload.users);
+        break;
+      }
+
       case "joined_room": {
         setRoomConfig(message.payload.config);
         setQueue(message.payload.queue);
@@ -193,5 +199,6 @@ export function useWebSocket() {
     approveSong,
     rejectSong,
     sendMessage,
+    users,
   };
 }

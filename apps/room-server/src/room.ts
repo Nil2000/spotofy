@@ -1,14 +1,27 @@
 import { prisma } from "@repo/db";
 import { SONG_REQUEST_TIMEOUT } from "./constants";
-import type { RoomConfig, SongPayload, SongData } from "./types";
+import type { RoomConfig, SongPayload, SongData, JWTPayload } from "./types";
 
 const songRequestTimeouts = new Map<string, NodeJS.Timeout>();
 
 export class Room {
   private config: RoomConfig;
+  private users: Map<string, JWTPayload> = new Map();
 
   constructor(config: RoomConfig) {
     this.config = config;
+  }
+
+  addUser(user: JWTPayload): void {
+    this.users.set(user.userId, user);
+  }
+
+  removeUser(userId: string): void {
+    this.users.delete(userId);
+  }
+
+  getUsers(): JWTPayload[] {
+    return Array.from(this.users.values());
   }
 
   getConfig(): RoomConfig {

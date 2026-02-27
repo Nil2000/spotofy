@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { Badge } from "@repo/ui/components/ui/badge";
@@ -14,7 +14,6 @@ import {
   DialogFooter,
 } from "@repo/ui/components/ui/dialog";
 import {
-  Users,
   Radio,
   Copy,
   ExternalLink,
@@ -23,6 +22,7 @@ import {
   CheckCircle,
   Clock,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import { FaSpotify } from "react-icons/fa";
 import { Label } from "@repo/ui/components/ui/label";
@@ -32,13 +32,19 @@ import Navbar from "@/components/navbar";
 
 type Room = {
   id: string;
-  code: string;
   name: string;
-  createdAt: string;
-  userCount: number;
-  isActive: boolean;
   autoApprove: boolean;
+  createdAt: string;
 };
+
+function formatRelativeTime(isoString: string): string {
+  const diff = Date.now() - new Date(isoString).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
 
 export default function AdminClient({
   isSpotifyConnected,
@@ -49,47 +55,57 @@ export default function AdminClient({
   const [roomName, setRoomName] = useState("");
   const [autoApprove, setAutoApprove] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [roomsLoading, setRoomsLoading] = useState(true);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
-  const rooms: Room[] = [
-    {
-      id: "1",
-      code: "PQ-7H2K",
-      name: "Friday Night Vibes",
-      createdAt: "2h ago",
-      userCount: 12,
-      isActive: true,
-      autoApprove: false,
-    },
-    {
-      id: "2",
-      code: "PQ-3X9M",
-      name: "Chill Study Session",
-      createdAt: "1d ago",
-      userCount: 0,
-      isActive: false,
-      autoApprove: true,
-    },
-    {
-      id: "3",
-      code: "PQ-5K1R",
-      name: "Weekend Party Mix",
-      createdAt: "3d ago",
-      userCount: 0,
-      isActive: false,
-      autoApprove: false,
-    },
-  ];
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const res = await fetch("/api/rooms", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          setRooms(data.rooms);
+        }
+      } finally {
+        setRoomsLoading(false);
+      }
+    };
+    fetchRooms();
+  }, []);
 
-  const handleCopyCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    setCopiedCode(code);
+  const handleCopyCode = (id: string) => {
+    navigator.clipboard.writeText(id);
+    setCopiedCode(id);
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  const handleCreateRoom = () => {
-    setRoomName("");
-    setAutoApprove(false);
-    setShowCreateDialog(false);
+  const handleCreateRoom = async () => {
+    if (!roomName.trim()) return;
+    setCreateLoading(true);
+    setCreateError(null);
+    try {
+      const res = await fetch("/api/rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: roomName.trim(), autoApprove }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setCreateError(data.error ?? "Failed to create room");
+        return;
+      }
+      const data = await res.json();
+      setRooms((prev) => [data.room, ...prev]);
+      setRoomName("");
+      setAutoApprove(false);
+      setShowCreateDialog(false);
+    } catch {
+      setCreateError("Something went wrong. Please try again.");
+    } finally {
+      setCreateLoading(false);
+    }
   };
 
   return (
@@ -208,97 +224,94 @@ export default function AdminClient({
             transition={{ duration: 0.6, delay: 0.15 }}
             className="space-y-3"
           >
+            {roomsLoading && (
+              <div className="space-y-3">
+                {[1, 2].map((n) => (
+                  <div
+                    key={n}
+                    className="rounded-2xl border border-border/60 bg-card/80 p-4 sm:p-5 h-20 animate-pulse"
+                  />
+                ))}
+              </div>
+            )}
             <AnimatePresence>
-              {rooms.map((room, i) => (
-                <motion.div
-                  key={room.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ delay: 0.2 + i * 0.06 }}
-                  className="group rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl p-4 sm:p-5 shadow-xl hover:border-primary/30 hover:shadow-primary/5 transition-all"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    {/* Room icon + info */}
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0">
-                        <Radio className="w-5 h-5 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold truncate">
-                            {room.name}
-                          </h3>
-                          {room.isActive && (
-                            <Badge
-                              variant="outline"
-                              className="gap-1.5 px-2 py-0.5 h-auto rounded-full bg-green-500/10 border-green-500/20 text-green-600 text-xs font-medium shrink-0"
-                            >
-                              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                              Live
-                            </Badge>
-                          )}
-                          {room.autoApprove && (
-                            <Badge
-                              variant="outline"
-                              className="gap-1 px-2 py-0.5 h-auto rounded-full bg-primary/10 border-primary/20 text-primary text-xs font-medium shrink-0"
-                            >
-                              <Sparkles className="w-3 h-3" />
-                              Auto-approve
-                            </Badge>
-                          )}
+              {!roomsLoading &&
+                rooms.map((room, i) => (
+                  <motion.div
+                    key={room.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ delay: 0.2 + i * 0.06 }}
+                    className="group rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl p-4 sm:p-5 shadow-xl hover:border-primary/30 hover:shadow-primary/5 transition-all"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                      {/* Room icon + info */}
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0">
+                          <Radio className="w-5 h-5 text-primary" />
                         </div>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                          <span className="font-mono font-semibold tracking-wider text-foreground/70">
-                            {room.code}
-                          </span>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {room.createdAt}
-                          </span>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <Users className="w-3 h-3" />
-                            {room.userCount} online
-                          </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-semibold truncate">
+                              {room.name}
+                            </h3>
+                            {room.autoApprove && (
+                              <Badge
+                                variant="outline"
+                                className="gap-1 px-2 py-0.5 h-auto rounded-full bg-primary/10 border-primary/20 text-primary text-xs font-medium shrink-0"
+                              >
+                                <Sparkles className="w-3 h-3" />
+                                Auto-approve
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                            <span className="font-mono font-semibold tracking-wider text-foreground/70">
+                              {room.id}
+                            </span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {formatRelativeTime(room.createdAt)}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => handleCopyCode(room.code)}
-                        className="rounded-lg text-muted-foreground hover:text-foreground"
-                        type="button"
-                      >
-                        {copiedCode === room.code ? (
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </Button>
-                      <Link href={`/room/${room.code}`}>
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 shrink-0">
                         <Button
-                          variant="outline"
-                          size="sm"
-                          className="rounded-lg gap-1.5 text-xs font-medium"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => handleCopyCode(room.id)}
+                          className="rounded-lg text-muted-foreground hover:text-foreground"
                           type="button"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          Open Room
+                          {copiedCode === room.id ? (
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
                         </Button>
-                      </Link>
+                        <Link href={`/room/${room.id}`}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-lg gap-1.5 text-xs font-medium"
+                            type="button"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            Open Room
+                          </Button>
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))}
             </AnimatePresence>
 
-            {rooms.length === 0 && (
+            {!roomsLoading && rooms.length === 0 && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -343,7 +356,13 @@ export default function AdminClient({
       </div>
 
       {/* Create Room Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+      <Dialog
+        open={showCreateDialog}
+        onOpenChange={(open) => {
+          setShowCreateDialog(open);
+          if (!open) setCreateError(null);
+        }}
+      >
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -365,8 +384,10 @@ export default function AdminClient({
                 id="room-name"
                 value={roomName}
                 onChange={(e) => setRoomName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCreateRoom()}
                 placeholder="e.g. Friday Night Vibes"
                 className="rounded-xl"
+                disabled={createLoading}
               />
             </div>
 
@@ -384,6 +405,10 @@ export default function AdminClient({
               <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />A unique
               room code will be generated automatically.
             </div>
+
+            {createError && (
+              <p className="text-sm text-red-500">{createError}</p>
+            )}
           </div>
 
           <DialogFooter className="gap-2">
@@ -392,17 +417,22 @@ export default function AdminClient({
               onClick={() => setShowCreateDialog(false)}
               className="rounded-xl"
               type="button"
+              disabled={createLoading}
             >
               Cancel
             </Button>
             <Button
               onClick={handleCreateRoom}
-              disabled={!roomName.trim()}
+              disabled={!roomName.trim() || createLoading}
               className="rounded-xl bg-linear-to-r from-primary to-primary/80 font-semibold text-primary-foreground shadow-lg shadow-primary/20"
               type="button"
             >
-              <Plus className="w-4 h-4" />
-              Create Room
+              {createLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4" />
+              )}
+              {createLoading ? "Creating..." : "Create Room"}
             </Button>
           </DialogFooter>
         </DialogContent>

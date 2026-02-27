@@ -60,9 +60,11 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
   }
 
   connections.set(ws, { ws, user, roomId });
+  room.addUser(user);
 
   const queue = await room.loadSongs();
 
+  // send joined room message to self
   send(ws, {
     type: "joined_room",
     payload: {
@@ -70,6 +72,12 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
       config: room.getConfig(),
       queue,
     },
+  });
+
+  // send list users message to all users in room
+  broadcastToRoom(roomId, {
+    type: "list_users",
+    payload: { users: room.getUsers() },
   });
 }
 
@@ -211,5 +219,18 @@ export async function handleMessage(ws: WebSocket, raw: string) {
 }
 
 export function handleDisconnect(ws: WebSocket) {
+  const conn = connections.get(ws);
   connections.delete(ws);
+
+  if (!conn?.user) return;
+
+  const room = roomCache.get(conn.roomId);
+  if (!room) return;
+
+  room.removeUser(conn.user.userId);
+
+  broadcastToRoom(conn.roomId, {
+    type: "list_users",
+    payload: { users: room.getUsers() },
+  });
 }

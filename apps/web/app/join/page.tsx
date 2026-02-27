@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
@@ -17,20 +18,39 @@ import {
   Sparkles,
   QrCode,
   Music,
+  Loader2,
 } from "lucide-react";
 import Navbar from "@/components/navbar";
 
 export default function JoinPage() {
+  const router = useRouter();
   const [code, setCode] = useState("");
+  const [joining, setJoining] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const normalized = useMemo(
-    () => code.trim().replaceAll(" ", "").toUpperCase(),
-    [code],
-  );
+  const normalized = code.trim().replaceAll(" ", "");
 
-  const href = normalized
-    ? `/room/${encodeURIComponent(normalized)}`
-    : "/room/PQ-7H2K";
+  const handleJoin = async () => {
+    if (!normalized) return;
+    setJoining(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/rooms/${encodeURIComponent(normalized)}`);
+      if (res.status === 404) {
+        setError("Room not found. Check the code and try again.");
+        return;
+      }
+      if (!res.ok) {
+        setError("Something went wrong. Please try again.");
+        return;
+      }
+      router.push(`/room/${encodeURIComponent(normalized)}`);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setJoining(false);
+    }
+  };
 
   const features = [
     {
@@ -130,26 +150,42 @@ export default function JoinPage() {
                     <Input
                       id="roomCode"
                       value={code}
-                      onChange={(e) => setCode(e.target.value)}
-                      placeholder="e.g. PQ-7H2K"
-                      className="h-auto flex-1 rounded-xl border-border bg-background px-4 py-3.5 text-base font-mono tracking-wider uppercase outline-none focus-visible:ring-primary/50 focus-visible:border-primary/50 transition-all placeholder:text-muted-foreground/50 placeholder:font-sans placeholder:tracking-normal placeholder:normal-case"
+                      onChange={(e) => {
+                        setCode(e.target.value);
+                        setError(null);
+                      }}
+                      onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                      placeholder="Paste room code here"
+                      className="h-auto flex-1 rounded-xl border-border bg-background px-4 py-3.5 text-base font-mono tracking-wider outline-none focus-visible:ring-primary/50 focus-visible:border-primary/50 transition-all placeholder:text-muted-foreground/50 placeholder:font-sans placeholder:tracking-normal"
+                      disabled={joining}
                     />
 
-                    <Link href={href} className="sm:w-auto">
-                      <motion.div
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="sm:w-auto"
+                    >
+                      <Button
+                        onClick={handleJoin}
+                        disabled={!normalized || joining}
+                        className="group w-full sm:w-auto h-auto rounded-xl bg-linear-to-r from-primary to-primary/80 px-6 py-3.5 font-semibold text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all flex items-center justify-center gap-2"
+                        type="button"
                       >
-                        <Button
-                          className="group w-full sm:w-auto h-auto rounded-xl bg-linear-to-r from-primary to-primary/80 px-6 py-3.5 font-semibold text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all flex items-center justify-center gap-2"
-                          type="button"
-                        >
-                          Join Room
-                          <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                        </Button>
-                      </motion.div>
-                    </Link>
+                        {joining ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            Join Room
+                            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                          </>
+                        )}
+                      </Button>
+                    </motion.div>
                   </div>
+
+                  {error && (
+                    <p className="mt-3 text-sm text-red-500">{error}</p>
+                  )}
 
                   <div className="mt-6 pt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
