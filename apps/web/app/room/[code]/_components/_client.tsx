@@ -37,6 +37,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@repo/ui/components/ui/combobox";
+import Image from "next/image";
 
 type ClientPageProps = {
   code: string;
@@ -306,92 +307,60 @@ export default function ClientPage({ code, user }: ClientPageProps) {
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <div className="flex-1">
-                    {/* <Combobox
-                      disabled={!isConnected}
-                      inputValue={searchQuery}
-                      onInputValueChange={setSearchQuery}
-                      onValueChange={handleSelectResult}
-                    >
-                      <ComboboxEmpty>No songs found.</ComboboxEmpty>
-                      <ComboboxInput
-                        showTrigger={false}
-                        showClear={!!searchQuery}
-                        placeholder="Search for a song..."
-                        className="w-full rounded-xl"
-                      />
-                      <ComboboxContent>
-                        <ComboboxList>
-                          {searchLoading ? (
-                            <div className="flex items-center justify-center py-4">
-                              <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                            </div>
-                          ) : (
-                            <>
-                              {searchResults.map((result) => (
-                                <ComboboxItem key={result.id} value={result.id}>
-                                  {result.imgUrl ? (
-                                    <img
-                                      src={result.imgUrl}
-                                      alt={result.album}
-                                      className="w-8 h-8 rounded-md object-cover shrink-0"
-                                    />
-                                  ) : (
-                                    <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center shrink-0">
-                                      <Music className="w-3.5 h-3.5 text-muted-foreground" />
-                                    </div>
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium truncate">
-                                      {result.name}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground truncate">
-                                      {result.artist} · {result.album}
-                                    </p>
+                <div className="flex flex-col gap-3 sm:flex-row items-center">
+                  <Combobox
+                    disabled={!isConnected}
+                    inputValue={searchQuery}
+                    onInputValueChange={setSearchQuery}
+                    onValueChange={handleSelectResult}
+                  >
+                    <ComboboxInput
+                      // showTrigger={false}
+                      showClear={!!searchQuery}
+                      placeholder="Search for a song..."
+                      className="w-full rounded-xl"
+                    />
+                    <ComboboxContent hidden={!searchQuery}>
+                      <ComboboxList>
+                        {searchLoading ? (
+                          <div className="flex items-center justify-center py-4">
+                            <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                          </div>
+                        ) : (
+                          <>
+                            {searchResults.length === 0 && (
+                              <ComboboxEmpty>No songs found.</ComboboxEmpty>
+                            )}
+                            {searchResults.map((result) => (
+                              <ComboboxItem key={result.id} value={result.id}>
+                                {result.imgUrl ? (
+                                  <Image
+                                    src={result.imgUrl}
+                                    alt={result.album}
+                                    className="w-8 h-8 rounded-md object-cover shrink-0"
+                                    width={32}
+                                    height={32}
+                                  />
+                                ) : (
+                                  <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                    <Music className="w-3.5 h-3.5 text-muted-foreground" />
                                   </div>
-                                </ComboboxItem>
-                              ))}
-                            </>
-                          )}
-                        </ComboboxList>
-                      </ComboboxContent>
-                    </Combobox> */}
-                    <Combobox items={searchResults}>
-                      <ComboboxInput
-                        placeholder="Search for a song..."
-                        className="w-full rounded-xl"
-                      />
-                      <ComboboxContent>
-                        <ComboboxEmpty>No items found</ComboboxEmpty>
-                        <ComboboxList>
-                          {searchResults.map((result) => (
-                            <ComboboxItem key={result.id} value={result.id}>
-                              {result.imgUrl ? (
-                                <img
-                                  src={result.imgUrl}
-                                  alt={result.album}
-                                  className="w-8 h-8 rounded-md object-cover shrink-0"
-                                />
-                              ) : (
-                                <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center shrink-0">
-                                  <Music className="w-3.5 h-3.5 text-muted-foreground" />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">
+                                    {result.name}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {result.artist} · {result.album}
+                                  </p>
                                 </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">
-                                  {result.name}
-                                </p>
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {result.artist} · {result.album}
-                                </p>
-                              </div>
-                            </ComboboxItem>
-                          ))}
-                        </ComboboxList>
-                      </ComboboxContent>
-                    </Combobox>
-                  </div>
+                              </ComboboxItem>
+                            ))}
+                          </>
+                        )}
+                      </ComboboxList>
+                    </ComboboxContent>
+                  </Combobox>
                   <motion.div
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
@@ -399,7 +368,7 @@ export default function ClientPage({ code, user }: ClientPageProps) {
                     <Button
                       onClick={handleRequestSong}
                       disabled={!isConnected || !searchQuery.trim()}
-                      className="h-auto rounded-xl bg-linear-to-r from-accent to-accent/80 px-5 sm:px-6 py-3 sm:py-3.5 font-semibold text-accent-foreground shadow-lg shadow-accent/20 hover:shadow-accent/30"
+                      className="h-auto rounded-xl bg-linear-to-r from-accent to-accent/80 px-2 sm:px-4 py-2 sm:py-2 font-semibold text-accent-foreground shadow-lg shadow-accent/20 hover:shadow-accent/30"
                       type="button"
                     >
                       <Plus className="w-4 h-4" />
