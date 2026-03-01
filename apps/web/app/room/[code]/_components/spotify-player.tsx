@@ -2,6 +2,15 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { Button } from "@repo/ui/components/ui/button";
+import { Slider } from "@repo/ui/components/ui/slider";
+import {
+  Volume2,
+  MonitorSmartphone,
+  Play,
+  Pause,
+  ChevronRight,
+} from "lucide-react";
 
 type SpotifyPlayer = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -9,6 +18,9 @@ type SpotifyPlayer = {
   connect: () => void;
   disconnect: () => void;
   getCurrentState: () => Promise<SpotifyPlaybackState | null>;
+  togglePlay: () => void;
+  nextTrack: () => void;
+  setVolume: (volume: number) => Promise<void>;
 };
 
 type SpotifyPlaybackState = {
@@ -121,31 +133,105 @@ export default function SpotifyWebPlayer({ token }: Props) {
 
   if (!isActive || !currentTrack) {
     return (
-      <div className="container">
-        <div className="main-wrapper">
-          <p>Waiting for Spotify to be active on this device...</p>
+      <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-center sm:items-start p-2">
+        <div className="w-full sm:w-32 md:w-40 aspect-square sm:aspect-auto sm:h-32 md:h-40 rounded-xl bg-linear-to-br from-primary/10 to-accent/10 border border-border/50 flex items-center justify-center shrink-0 mx-auto sm:mx-0 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-primary/5 group-hover:bg-primary/10 transition-colors animate-pulse" />
+          <MonitorSmartphone className="w-10 h-10 text-primary/40" />
+        </div>
+        <div className="flex-1 flex flex-col justify-center text-center sm:text-left gap-3 sm:py-2">
+          <div>
+            <h3 className="text-lg font-semibold mb-1">Player Ready</h3>
+            <p className="text-sm text-muted-foreground">
+              To start playing music here, open the Spotify app on your phone or
+              computer, go to devices, and select{" "}
+              <span className="font-semibold text-foreground">
+                Web Playback SDK
+              </span>
+              .
+            </p>
+          </div>
+          <div className="flex justify-center sm:justify-start">
+            <div className="inline-flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+              </span>
+              Waiting for connection...
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container">
-      <div className="main-wrapper">
-        <Image
-          src={currentTrack.album.images[0]?.url ?? ""}
-          className="now-playing__cover"
-          alt=""
-          width={300}
-          height={300}
-        />
-        <div className="now-playing__side">
-          <div className="now-playing__name">{currentTrack.name}</div>
-          <div className="now-playing__artist">
-            {currentTrack.artists[0]?.name}
+    <div className="flex flex-col md:flex-row items-center md:items-stretch gap-6 md:gap-8">
+      {/* Album Art with depth */}
+      <div className="relative shrink-0 group mx-auto md:mx-0">
+        <div className="absolute inset-0 bg-primary/20 rounded-2xl blur-xl group-hover:bg-primary/30 transition-colors" />
+        <div className="relative w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 rounded-2xl overflow-hidden ring-1 ring-border/50 shadow-2xl shadow-black/40">
+          <Image
+            src={currentTrack.album.images[0]?.url ?? ""}
+            alt={currentTrack.name}
+            fill
+            className="object-cover transition-transform duration-700 group-hover:scale-105"
+            sizes="(max-width: 768px) 224px, 256px"
+          />
+        </div>
+      </div>
+
+      {/* Player Controls & Info */}
+      <div className="flex-1 flex flex-col justify-center text-center md:text-left min-w-0 w-full">
+        <div className="space-y-2 mb-6 md:mb-8">
+          <h3 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight truncate bg-linear-to-br from-foreground to-foreground/70 bg-clip-text text-transparent pb-1">
+            {currentTrack.name}
+          </h3>
+          <p className="text-base sm:text-lg text-muted-foreground font-medium truncate">
+            {currentTrack.artists.map((a) => a.name).join(", ")}
+          </p>
+        </div>
+
+        {/* Controls Bar */}
+        <div className="bg-card/40 border border-border/50 rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-6 shadow-xs">
+          {/* Main Controls */}
+          <div className="flex items-center gap-4">
+            <Button
+              className="w-14 h-14 rounded-full bg-linear-to-br from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-primary-foreground shadow-lg shadow-primary/25 shrink-0 transition-transform hover:scale-105 active:scale-95"
+              type="button"
+              onClick={() => playerRef.current?.togglePlay()}
+            >
+              {isPaused ? <Play /> : <Pause />}
+            </Button>
+
+            <Button
+              size="icon"
+              variant="secondary"
+              className="w-12 h-12 rounded-full bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground shrink-0 shadow-xs"
+              type="button"
+              onClick={() => playerRef.current?.nextTrack()}
+            >
+              <ChevronRight />
+            </Button>
           </div>
-          <div className="now-playing__status">
-            {isPaused ? "Paused" : "Playing"}
+
+          <div className="h-8 w-px bg-border/50 hidden sm:block mx-2" />
+
+          {/* Volume Control */}
+          <div className="flex items-center gap-3 w-full sm:w-auto flex-1 max-w-50">
+            <Volume2 className="w-5 h-5 text-muted-foreground shrink-0" />
+            <Slider
+              className="cursor-pointer"
+              defaultValue={[0.5]}
+              max={1}
+              step={0.01}
+              onValueChange={(val) => {
+                if (Array.isArray(val) && val.length > 0) {
+                  playerRef.current?.setVolume(val[0]);
+                } else if (typeof val === "number") {
+                  playerRef.current?.setVolume(val);
+                }
+              }}
+            />
           </div>
         </div>
       </div>

@@ -12,10 +12,6 @@ import {
   Plus,
   Users,
   Radio,
-  Search,
-  Pause,
-  SkipForward,
-  Volume2,
   Clock,
   Crown,
   CheckCircle,
@@ -27,7 +23,7 @@ import {
 } from "lucide-react";
 import Navbar from "@/components/navbar";
 import { useWebSocket } from "@/hooks/useWebSocket";
-import type { JWTPayload, SongPayload } from "@/types/websocket";
+import type { JWTPayload } from "@/types/websocket";
 import type { SearchResult } from "@/app/api/spotify/search/route";
 import {
   Combobox,
@@ -38,13 +34,19 @@ import {
   ComboboxList,
 } from "@repo/ui/components/ui/combobox";
 import Image from "next/image";
+import SpotifyWebPlayer from "./spotify-player";
 
 type ClientPageProps = {
   code: string;
   user: JWTPayload;
+  spotifyToken: string | null;
 };
 
-export default function ClientPage({ code, user }: ClientPageProps) {
+export default function ClientPage({
+  code,
+  user,
+  spotifyToken,
+}: ClientPageProps) {
   const {
     connectionState,
     isConnected,
@@ -184,106 +186,58 @@ export default function ClientPage({ code, user }: ClientPageProps) {
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl overflow-hidden shadow-2xl shadow-primary/5"
+                className="relative rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl overflow-hidden shadow-2xl shadow-primary/5"
               >
-                <div className="p-4 sm:p-6 border-b border-border/50">
+                {/* Subtle gradient background for depth */}
+                <div className="absolute inset-0 bg-linear-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
+
+                <div className="relative p-4 sm:p-6 border-b border-border/50 bg-muted/20">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                        <Radio className="w-5 h-5 text-primary" />
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary to-accent p-px shadow-lg shadow-primary/20">
+                        <div className="w-full h-full bg-card rounded-[11px] flex items-center justify-center">
+                          <Radio className="w-6 h-6 text-primary" />
+                        </div>
                       </div>
                       <div>
-                        <h2 className="font-semibold">Now Playing</h2>
-                        <p className="text-xs text-muted-foreground">
+                        <h2 className="font-bold text-lg tracking-tight">
+                          Now Playing
+                        </h2>
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Live from Spotify
                         </p>
                       </div>
                     </div>
                     <Badge
                       variant="outline"
-                      className="gap-2 px-3 py-1.5 h-auto rounded-full bg-green-500/10 border-green-500/20"
+                      className="gap-2 px-3 py-1.5 h-auto rounded-full bg-green-500/10 border-green-500/30 shadow-xs shadow-green-500/10"
                     >
-                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                      <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                      <div className="relative flex h-2 w-2">
+                        <div className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                        <div className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                      </div>
+                      <span className="text-xs font-bold text-green-600 dark:text-green-400 tracking-wide uppercase">
                         Live
                       </span>
                     </Badge>
                   </div>
                 </div>
 
-                <div className="p-4 sm:p-6">
-                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                    <div className="w-full sm:w-32 md:w-40 aspect-square sm:aspect-auto sm:h-32 md:h-40 rounded-xl bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0 mx-auto sm:mx-0">
-                      <Music className="w-12 h-12 sm:w-16 sm:h-16 text-primary/40" />
-                    </div>
-                    <div className="flex-1 flex flex-col justify-between text-center sm:text-left">
-                      <div>
-                        <p className="text-xs sm:text-sm text-muted-foreground mb-1">
-                          Track
+                <div className="relative p-4 sm:p-6 sm:py-8">
+                  {spotifyToken ? (
+                    <SpotifyWebPlayer token={spotifyToken} />
+                  ) : (
+                    <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-center sm:items-start">
+                      <div className="w-32 h-32 md:w-40 md:h-40 rounded-xl bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0">
+                        <Music className="w-12 h-12 text-primary/40" />
+                      </div>
+                      <div className="flex-1 flex flex-col justify-center text-center sm:text-left">
+                        <p className="text-sm text-muted-foreground">
+                          Spotify playback is only available to the room admin.
                         </p>
-                        <h3 className="text-xl sm:text-2xl font-bold">
-                          Midnight City
-                        </h3>
-                        <p className="text-muted-foreground mt-1">M83</p>
-                      </div>
-                      <div className="mt-4">
-                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div className="h-full w-2/3 rounded-full bg-linear-to-r from-primary to-accent" />
-                        </div>
-                        <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                          <span>2:34</span>
-                          <span>4:03</span>
-                        </div>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="mt-6 flex items-center justify-center gap-3 sm:gap-4">
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        className="rounded-full bg-muted text-muted-foreground hover:text-foreground"
-                        type="button"
-                      >
-                        <SkipForward className="w-4 h-4 sm:w-5 sm:h-5 rotate-180" />
-                      </Button>
-                    </motion.div>
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <Button
-                        size="icon-lg"
-                        className="rounded-full bg-linear-to-r from-primary to-accent text-primary-foreground shadow-lg shadow-primary/30"
-                        type="button"
-                      >
-                        <Pause className="w-5 h-5 sm:w-6 sm:h-6" />
-                      </Button>
-                    </motion.div>
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        className="rounded-full bg-muted text-muted-foreground hover:text-foreground"
-                        type="button"
-                      >
-                        <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
-                      </Button>
-                    </motion.div>
-                    <div className="hidden sm:flex items-center gap-2 ml-4">
-                      <Volume2 className="w-4 h-4 text-muted-foreground" />
-                      <div className="w-20 h-1.5 rounded-full bg-muted">
-                        <div className="h-full w-3/4 rounded-full bg-primary" />
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </motion.section>
 
