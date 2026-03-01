@@ -83,12 +83,17 @@ export type RejectSongMessage = {
   };
 };
 
+export type BroadcastNowPlayingMessage = {
+  type: "broadcast_now_playing";
+};
+
 export type IncomingMessage =
   | JoinRoomMessage
   | RequestSongMessage
   | UpvoteSongMessage
   | ApproveSongMessage
-  | RejectSongMessage;
+  | RejectSongMessage
+  | BroadcastNowPlayingMessage;
 
 // --- Server -> Client Messages ---
 
@@ -143,6 +148,13 @@ export type ListUsersMessage = {
   };
 };
 
+export type NowPlayingUpdateMessage = {
+  type: "now_playing_update";
+  payload: {
+    song: SongData | null;
+  };
+};
+
 export type OutgoingMessage =
   | QueueUpdateMessage
   | SongRequestedMessage
@@ -150,4 +162,5 @@ export type OutgoingMessage =
   | SongRejectedMessage
   | ErrorMessage
   | JoinedRoomMessage
-  | ListUsersMessage;
+  | ListUsersMessage
+  | NowPlayingUpdateMessage;

@@ -191,6 +191,25 @@ async function handleRejectSong(ws: WebSocket, msg: RejectSongMessage) {
   }
 }
 
+async function handlePlayCurrentSong(ws: WebSocket) {
+  const conn = connections.get(ws);
+  if (!conn || !conn.user) {
+    return send(ws, { type: "error", payload: { message: "Not in a room" } });
+  }
+
+  const room = await getRoom(conn.roomId);
+  if (!room) {
+    return send(ws, { type: "error", payload: { message: "Room not found" } });
+  }
+
+  const song = await room.playCurrentSong();
+
+  broadcastToRoom(conn.roomId, {
+    type: "now_playing_update",
+    payload: { song: song ?? null },
+  });
+}
+
 export async function handleMessage(ws: WebSocket, raw: string) {
   let msg: IncomingMessage;
   try {
@@ -210,7 +229,10 @@ export async function handleMessage(ws: WebSocket, raw: string) {
       return handleApproveSong(ws, msg);
     case "reject_song":
       return handleRejectSong(ws, msg);
+    case "broadcast_now_playing":
+      return handlePlayCurrentSong(ws);
     default:
+      console.log("MESSAGE_TYPE: ", msg);
       return send(ws, {
         type: "error",
         payload: { message: "Unknown message type" },

@@ -75,12 +75,17 @@ export type RejectSongMessage = {
   };
 };
 
+export type BroadcastNowPlayingMessage = {
+  type: "broadcast_now_playing";
+};
+
 export type ClientMessage =
   | JoinRoomMessage
   | RequestSongMessage
   | UpvoteSongMessage
   | ApproveSongMessage
-  | RejectSongMessage;
+  | RejectSongMessage
+  | BroadcastNowPlayingMessage;
 
 // --- Server -> Client Messages (Incoming to client) ---
 
@@ -140,6 +145,13 @@ export type ListUsersMessage = {
   };
 };
 
+export type NowPlayingUpdateMessage = {
+  type: "now_playing_update";
+  payload: {
+    song: SongData | null;
+  };
+};
+
 export type ServerMessage =
   | QueueUpdateMessage
   | SongRequestedMessage
@@ -147,7 +159,8 @@ export type ServerMessage =
   | SongRejectedMessage
   | ErrorMessage
   | JoinedRoomMessage
-  | ListUsersMessage;
+  | ListUsersMessage
+  | NowPlayingUpdateMessage;
 
 // --- WebSocket Hook Types ---
 

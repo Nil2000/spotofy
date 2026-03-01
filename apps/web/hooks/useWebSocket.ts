@@ -18,6 +18,7 @@ export function useWebSocket() {
   const [queue, setQueue] = useState<SongData[]>([]);
   const [pendingRequests, setPendingRequests] = useState<SongData[]>([]);
   const [users, setUsers] = useState<JWTPayload[]>([]);
+  const [nowPlaying, setNowPlaying] = useState<SongData | null>(null);
 
   const handleServerMessage = useCallback((message: ServerMessage) => {
     switch (message.type) {
@@ -53,6 +54,11 @@ export function useWebSocket() {
         setPendingRequests((prev) =>
           prev.filter((song) => song.id !== message.payload.songId),
         );
+        break;
+      }
+
+      case "now_playing_update": {
+        setNowPlaying(message.payload.song);
         break;
       }
 
@@ -177,6 +183,10 @@ export function useWebSocket() {
     [sendMessage],
   );
 
+  const broadcastNowPlaying = useCallback(() => {
+    sendMessage({ type: "broadcast_now_playing" });
+  }, [sendMessage]);
+
   useEffect(() => {
     connect();
     return () => {
@@ -198,7 +208,9 @@ export function useWebSocket() {
     upvoteSong,
     approveSong,
     rejectSong,
+    broadcastNowPlaying,
     sendMessage,
     users,
+    nowPlaying,
   };
 }

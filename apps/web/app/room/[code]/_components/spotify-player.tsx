@@ -49,6 +49,8 @@ type SpotifyTrack = {
 
 type Props = {
   token: string;
+  onReady?: () => void;
+  nowPlayingUrl?: string | null;
 };
 
 async function fetchFreshToken(): Promise<string | null> {
@@ -62,9 +64,15 @@ async function fetchFreshToken(): Promise<string | null> {
   }
 }
 
-export default function SpotifyWebPlayer({ token }: Props) {
+export default function SpotifyWebPlayer({
+  token,
+  onReady,
+  nowPlayingUrl,
+}: Props) {
   const playerRef = useRef<SpotifyPlayer | null>(null);
   const tokenRef = useRef<string>(token);
+  const deviceIdRef = useRef<string | null>(null);
+  const onReadyRef = useRef(onReady);
   const [isPaused, setPaused] = useState(false);
   const [isActive, setActive] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<SpotifyTrack | null>(null);
@@ -72,6 +80,30 @@ export default function SpotifyWebPlayer({ token }: Props) {
   useEffect(() => {
     tokenRef.current = token;
   }, [token]);
+
+  useEffect(() => {
+    onReadyRef.current = onReady;
+  }, [onReady]);
+
+  useEffect(() => {
+    if (!nowPlayingUrl || !deviceIdRef.current) return;
+    const play = async () => {
+      const fresh = await fetchFreshToken();
+      const accessToken = fresh ?? tokenRef.current;
+      await fetch(
+        `https://api.spotify.com/v1/me/player/play?device_id=${deviceIdRef.current}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ uris: [nowPlayingUrl] }),
+        },
+      );
+    };
+    play().catch(console.error);
+  }, [nowPlayingUrl]);
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -96,6 +128,8 @@ export default function SpotifyWebPlayer({ token }: Props) {
 
       player.addListener("ready", ({ device_id }: { device_id: string }) => {
         console.log("Ready with Device ID", device_id);
+        deviceIdRef.current = device_id;
+        onReadyRef.current?.();
       });
 
       player.addListener(
