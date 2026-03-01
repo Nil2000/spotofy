@@ -186,7 +186,6 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 30, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.8, type: "spring", bounce: 0.4 }}
-              className="mb-6"
             >
               <Badge
                 variant="outline"

@@ -113,11 +113,8 @@ export default function AdminClient({
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-primary/15 via-background to-background pointer-events-none" />
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_bottom_left,var(--tw-gradient-stops))] from-accent/10 via-transparent to-transparent pointer-events-none" />
 
-      <div className="relative z-10">
-        <Navbar
-          className="p-4 sm:p-6 flex items-center justify-between"
-          containerClassName="w-full"
-        >
+      <div className="relative">
+        <Navbar>
           <Link href="/">
             <Button variant="outline">Home</Button>
           </Link>
@@ -143,7 +140,7 @@ export default function AdminClient({
           )}
         </Navbar>
 
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <div className="min-h-screen max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-20">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: 18 }}

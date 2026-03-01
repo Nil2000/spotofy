@@ -81,12 +81,9 @@ export default function JoinPage() {
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_bottom_left,var(--tw-gradient-stops))] from-accent/10 via-transparent to-transparent pointer-events-none" />
 
       <div className="relative">
-        <Navbar
-          className="p-4 sm:p-6 flex items-center justify-between"
-          containerClassName="w-full"
-        />
+        <Navbar />
 
-        <div className="mx-auto flex min-h-[calc(100vh-88px)] w-full max-w-4xl flex-col px-4 pb-16">
+        <div className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-4 sm:px-6 lg:px-8 pt-20">
           <div className="flex-1 flex flex-col justify-center">
             {/* Header */}
             <motion.div

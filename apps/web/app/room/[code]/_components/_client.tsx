@@ -144,7 +144,6 @@ export default function ClientPage({ code, user }: ClientPageProps) {
 
       <div className="relative">
         <Navbar
-          logoSize="sm"
           className="sticky top-0 z-50 backdrop-blur-xl bg-background/70 border-b border-border/50"
           leftContent={
             <div className="flex items-center gap-2">
