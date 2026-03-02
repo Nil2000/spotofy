@@ -51,6 +51,12 @@ type Props = {
   token: string;
   onReady?: () => void;
   nowPlayingUrl?: string | null;
+  onSongEnd?: () => void;
+};
+
+type ExtendedPlaybackState = SpotifyPlaybackState & {
+  position: number;
+  duration: number;
 };
 
 async function fetchFreshToken(): Promise<string | null> {
@@ -68,11 +74,15 @@ export default function SpotifyWebPlayer({
   token,
   onReady,
   nowPlayingUrl,
+  onSongEnd,
 }: Props) {
   const playerRef = useRef<SpotifyPlayer | null>(null);
   const tokenRef = useRef<string>(token);
   const deviceIdRef = useRef<string | null>(null);
   const onReadyRef = useRef(onReady);
+  const onSongEndRef = useRef(onSongEnd);
+  const prevTrackNameRef = useRef<string | null>(null);
+  const songEndFiredRef = useRef(false);
   const [isPaused, setPaused] = useState(false);
   const [isActive, setActive] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<SpotifyTrack | null>(null);
@@ -84,6 +94,10 @@ export default function SpotifyWebPlayer({
   useEffect(() => {
     onReadyRef.current = onReady;
   }, [onReady]);
+
+  useEffect(() => {
+    onSongEndRef.current = onSongEnd;
+  }, [onSongEnd]);
 
   useEffect(() => {
     if (!nowPlayingUrl || !deviceIdRef.current) return;
@@ -140,16 +154,33 @@ export default function SpotifyWebPlayer({
       );
 
       player.addListener("player_state_changed", (state) => {
-        const s = state as SpotifyPlaybackState | null;
+        const s = state as ExtendedPlaybackState | null;
         if (!s) {
           setActive(false);
           return;
         }
-        setCurrentTrack(s.track_window.current_track);
+        const track = s.track_window.current_track;
+        setCurrentTrack(track);
         setPaused(s.paused);
         player.getCurrentState().then((currentState) => {
           setActive(!!currentState);
         });
+
+        // Detect end of track: paused at position 0, same track as before
+        const isSameTrack = prevTrackNameRef.current === track.name;
+        if (
+          s.paused &&
+          s.position === 0 &&
+          isSameTrack &&
+          !songEndFiredRef.current
+        ) {
+          songEndFiredRef.current = true;
+          onSongEndRef.current?.();
+        }
+        if (!s.paused || s.position > 0) {
+          songEndFiredRef.current = false;
+        }
+        prevTrackNameRef.current = track.name;
       });
 
       player.addListener("authentication_error", (error) => {

@@ -61,6 +61,7 @@ export default function ClientPage({
     approveSong,
     rejectSong,
     broadcastNowPlaying,
+    requestNextSong,
     users,
     nowPlaying,
   } = useWebSocket();
@@ -233,6 +234,7 @@ export default function ClientPage({
                         token={spotifyToken}
                         onReady={broadcastNowPlaying}
                         nowPlayingUrl={nowPlaying?.url}
+                        onSongEnd={requestNextSong}
                       />
                     ) : (
                       <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-center sm:items-start">

@@ -87,13 +87,18 @@ export type BroadcastNowPlayingMessage = {
   type: "broadcast_now_playing";
 };
 
+export type NextSongMessage = {
+  type: "next_song";
+};
+
 export type IncomingMessage =
   | JoinRoomMessage
   | RequestSongMessage
   | UpvoteSongMessage
   | ApproveSongMessage
   | RejectSongMessage
-  | BroadcastNowPlayingMessage;
+  | BroadcastNowPlayingMessage
+  | NextSongMessage;
 
 // --- Server -> Client Messages ---
 

@@ -191,6 +191,34 @@ async function handleRejectSong(ws: WebSocket, msg: RejectSongMessage) {
   }
 }
 
+async function handleNextSong(ws: WebSocket) {
+  const conn = connections.get(ws);
+  if (!conn || !conn.user) {
+    return send(ws, { type: "error", payload: { message: "Not in a room" } });
+  }
+
+  const room = await getRoom(conn.roomId);
+  if (!room) {
+    return send(ws, { type: "error", payload: { message: "Room not found" } });
+  }
+
+  if (conn.user.userId !== room.getAdminId()) {
+    return send(ws, {
+      type: "error",
+      payload: { message: "Only admin can skip to next song" },
+    });
+  }
+
+  const song = await room.playNextSong();
+
+  broadcastToRoom(conn.roomId, {
+    type: "now_playing_update",
+    payload: { song: song ?? null },
+  });
+
+  await sendQueueUpdate(conn.roomId, room);
+}
+
 async function handlePlayCurrentSong(ws: WebSocket) {
   const conn = connections.get(ws);
   if (!conn || !conn.user) {
@@ -231,6 +259,8 @@ export async function handleMessage(ws: WebSocket, raw: string) {
       return handleRejectSong(ws, msg);
     case "broadcast_now_playing":
       return handlePlayCurrentSong(ws);
+    case "next_song":
+      return handleNextSong(ws);
     default:
       console.log("MESSAGE_TYPE: ", msg);
       return send(ws, {

@@ -187,6 +187,10 @@ export function useWebSocket() {
     sendMessage({ type: "broadcast_now_playing" });
   }, [sendMessage]);
 
+  const requestNextSong = useCallback(() => {
+    sendMessage({ type: "next_song" });
+  }, [sendMessage]);
+
   useEffect(() => {
     connect();
     return () => {
@@ -209,6 +213,7 @@ export function useWebSocket() {
     approveSong,
     rejectSong,
     broadcastNowPlaying,
+    requestNextSong,
     sendMessage,
     users,
     nowPlaying,
