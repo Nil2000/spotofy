@@ -21,6 +21,7 @@ import {
   LogOut,
   Home,
   MonitorSmartphone,
+  X,
 } from "lucide-react";
 import Navbar from "@/components/navbar";
 import { useWebSocket } from "@/hooks/useWebSocket";
@@ -70,6 +71,7 @@ export default function ClientPage({
   const [isAdmin] = useState(user.isAdmin);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedSong, setSelectedSong] = useState<SearchResult | null>(null);
 
   useEffect(() => {
     if (isConnected) {
@@ -107,26 +109,20 @@ export default function ClientPage({
   const handleSelectResult = (value: string | null) => {
     const result = searchResults.find((r) => r.id === value);
     if (!result) return;
-    requestSong({
-      name: result.name,
-      artist: result.artist,
-      url: result.url,
-      imgUrl: result.imgUrl,
-    });
+    setSelectedSong(result);
     setSearchQuery("");
     setSearchResults([]);
   };
 
   const handleRequestSong = () => {
-    if (!searchQuery.trim()) return;
+    if (!selectedSong) return;
     requestSong({
-      name: searchQuery,
-      artist: "Unknown Artist",
-      url: "",
-      imgUrl: "",
+      name: selectedSong.name,
+      artist: selectedSong.artist,
+      url: selectedSong.url,
+      imgUrl: selectedSong.imgUrl,
     });
-    setSearchQuery("");
-    setSearchResults([]);
+    setSelectedSong(null);
   };
 
   const getConnectionStatusIcon = () => {
@@ -337,7 +333,7 @@ export default function ClientPage({
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row items-center">
+                <div className="flex flex-col gap-3">
                   <Combobox
                     disabled={!isConnected}
                     inputValue={searchQuery}
@@ -345,7 +341,6 @@ export default function ClientPage({
                     onValueChange={handleSelectResult}
                   >
                     <ComboboxInput
-                      // showTrigger={false}
                       showClear={!!searchQuery}
                       placeholder="Search for a song..."
                       className="w-full rounded-xl"
@@ -366,7 +361,7 @@ export default function ClientPage({
                                 {result.imgUrl ? (
                                   <Image
                                     src={result.imgUrl}
-                                    alt={result.album}
+                                    alt={result.name}
                                     className="w-8 h-8 rounded-md object-cover shrink-0"
                                     width={32}
                                     height={32}
@@ -391,20 +386,62 @@ export default function ClientPage({
                       </ComboboxList>
                     </ComboboxContent>
                   </Combobox>
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <Button
-                      onClick={handleRequestSong}
-                      disabled={!isConnected || !searchQuery.trim()}
-                      className="h-auto rounded-xl bg-linear-to-r from-accent to-accent/80 px-2 sm:px-4 py-2 sm:py-2 font-semibold text-accent-foreground shadow-lg shadow-accent/20 hover:shadow-accent/30"
-                      type="button"
+
+                  {selectedSong && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      className="flex items-center gap-3 p-3 rounded-xl border border-accent/40 bg-accent/5"
                     >
-                      <Plus className="w-4 h-4" />
-                      <span className="sm:inline">Add</span>
-                    </Button>
-                  </motion.div>
+                      {selectedSong.imgUrl ? (
+                        <Image
+                          src={selectedSong.imgUrl}
+                          alt={selectedSong.name}
+                          className="w-10 h-10 rounded-lg object-cover shrink-0"
+                          width={40}
+                          height={40}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                          <Music className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">
+                          {selectedSong.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {selectedSong.artist}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <motion.div
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <Button
+                            onClick={handleRequestSong}
+                            disabled={!isConnected}
+                            className="h-auto rounded-lg bg-linear-to-r from-accent to-accent/80 px-3 py-1.5 text-sm font-semibold text-accent-foreground shadow-md shadow-accent/20"
+                            type="button"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            Add to Queue
+                          </Button>
+                        </motion.div>
+                        <Button
+                          onClick={() => setSelectedSong(null)}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                          type="button"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
                 <p className="mt-3 text-xs text-muted-foreground">
                   {roomConfig?.autoApprove

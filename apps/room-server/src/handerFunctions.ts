@@ -79,6 +79,19 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
     type: "list_users",
     payload: { users: room.getUsers() },
   });
+
+  // send queue update to this user
+  send(ws, {
+    type: "queue_update",
+    payload: { queue },
+  });
+
+  // send current song to this user
+  const currentSong = await room.playCurrentSong();
+  send(ws, {
+    type: "now_playing_update",
+    payload: { song: currentSong ?? null },
+  });
 }
 
 async function handleRequestSong(ws: WebSocket, msg: RequestSongMessage) {
@@ -236,6 +249,8 @@ async function handlePlayCurrentSong(ws: WebSocket) {
     type: "now_playing_update",
     payload: { song: song ?? null },
   });
+
+  await sendQueueUpdate(conn.roomId, room);
 }
 
 export async function handleMessage(ws: WebSocket, raw: string) {
