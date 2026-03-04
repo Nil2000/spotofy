@@ -121,7 +121,7 @@ export default function SpotifyWebPlayer({
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ uris: [currentNowPlayingUrl], position_ms: 0 }),
+        body: JSON.stringify({ uris: [currentNowPlayingUrl], position_ms: 1 }),
       },
     );
   }, []);
@@ -209,45 +209,19 @@ export default function SpotifyWebPlayer({
           setActive(!!currentState);
         });
 
-        // Detect end of track: paused at position 0, same track as before
-        // console.log("PREV TRACK:", prevTrackNameRef.current);
-        // console.log("Player Track:", track.album);
-        // const isSameTrack = prevTrackNameRef.current === track.name;
-        // const isPlayerOnCurrentSong =
-        //   !!nowPlayingUrlRef.current && track.uri === nowPlayingUrlRef.current;
-        // console.log("Is player on current song:", isPlayerOnCurrentSong);
-        // console.log("Paused:", s.paused);
-        // console.log("Position:", s.position);
-        // console.log("Is same track:", isSameTrack);
-        // console.log("Song end fired:", songEndFiredRef.current);
-
-        // Play nowplaying song
-        // if (!isPlayerOnCurrentSong) {
-        // console.log("ISActive:", isActive);
-        // if (isActive && !isPlayerOnCurrentSong) {
-        //   console.log("calling play");
-        //   play().catch(console.error);
-        // }
-
-        // }
-
-        // if (
-        //   s.paused &&
-        //   s.position === 0 &&
-        //   isSameTrack &&
-        //   !songEndFiredRef.current
-        // ) {
-        //   songEndFiredRef.current = true;
-        //   if (isPlayerOnCurrentSong) {
-        //     onSongEndRef.current?.();
-        //   } else {
-        //     console.log("Calling play function");
-        //     await play();
-        //   }
-        // }
-        // if (!s.paused || s.position > 0) {
-        //   songEndFiredRef.current = false;
-        // }
+        // Detect end of running track
+        if (
+          s.paused &&
+          s.position === 0 &&
+          !!prevTrackUrlRef.current &&
+          prevTrackUrlRef.current === track.uri
+        ) {
+          songEndFiredRef.current = true;
+          // if(isPlayerOnCurrentSong){
+          console.log("Reached here for next song call");
+          onSongEndRef.current?.();
+          // }
+        }
         prevTrackUrlRef.current = track.uri;
       });
 

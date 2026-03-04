@@ -80,17 +80,17 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
     payload: { users: room.getUsers() },
   });
 
-  // send queue update to this user
-  send(ws, {
-    type: "queue_update",
-    payload: { queue },
-  });
-
   // send current song to this user
   const currentSong = await room.playCurrentSong();
   send(ws, {
     type: "now_playing_update",
     payload: { song: currentSong ?? null },
+  });
+
+  // send queue update to this user
+  send(ws, {
+    type: "queue_update",
+    payload: { queue },
   });
 }
 

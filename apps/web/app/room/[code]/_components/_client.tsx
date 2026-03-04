@@ -226,12 +226,29 @@ export default function ClientPage({
                 <div className="relative p-4 sm:p-6 sm:py-8">
                   {isAdmin ? (
                     spotifyToken ? (
-                      <SpotifyWebPlayer
-                        token={spotifyToken}
-                        // onReady={()}
-                        nowPlayingUrl={nowPlaying?.url}
-                        onSongEnd={requestNextSong}
-                      />
+                      nowPlaying?.url ? (
+                        <SpotifyWebPlayer
+                          token={spotifyToken}
+                          // onReady={()}
+                          nowPlayingUrl={nowPlaying.url}
+                          onSongEnd={requestNextSong}
+                        />
+                      ) : (
+                        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-center sm:items-start">
+                          <div className="w-32 h-32 md:w-40 md:h-40 rounded-xl bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0">
+                            <Music className="w-12 h-12 text-primary/40" />
+                          </div>
+                          <div className="flex-1 flex flex-col justify-center text-center sm:text-left gap-2">
+                            <p className="text-base font-semibold">
+                              No song available to play
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              The queue is empty. Add songs to the queue to
+                              start playback.
+                            </p>
+                          </div>
+                        </div>
+                      )
                     ) : (
                       <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-center sm:items-start">
                         <div className="w-32 h-32 md:w-40 md:h-40 rounded-xl bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0">
