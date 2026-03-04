@@ -228,7 +228,7 @@ export default function ClientPage({
                     spotifyToken ? (
                       <SpotifyWebPlayer
                         token={spotifyToken}
-                        onReady={broadcastNowPlaying}
+                        // onReady={()}
                         nowPlayingUrl={nowPlaying?.url}
                         onSongEnd={requestNextSong}
                       />

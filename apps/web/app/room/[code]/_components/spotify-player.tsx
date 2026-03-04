@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Button } from "@repo/ui/components/ui/button";
 import { Slider } from "@repo/ui/components/ui/slider";
@@ -42,6 +42,7 @@ declare global {
 }
 
 type SpotifyTrack = {
+  uri: string;
   name: string;
   artists: { name: string }[];
   album: { images: { url: string }[] };
@@ -79,9 +80,10 @@ export default function SpotifyWebPlayer({
   const playerRef = useRef<SpotifyPlayer | null>(null);
   const tokenRef = useRef<string>(token);
   const deviceIdRef = useRef<string | null>(null);
+  const nowPlayingUrlRef = useRef<string | null | undefined>(nowPlayingUrl);
   const onReadyRef = useRef(onReady);
   const onSongEndRef = useRef(onSongEnd);
-  const prevTrackNameRef = useRef<string | null>(null);
+  const prevTrackUrlRef = useRef<string | null>(null);
   const songEndFiredRef = useRef(false);
   const [isPaused, setPaused] = useState(false);
   const [isActive, setActive] = useState(false);
@@ -92,32 +94,66 @@ export default function SpotifyWebPlayer({
   }, [token]);
 
   useEffect(() => {
-    onReadyRef.current = onReady;
-  }, [onReady]);
+    nowPlayingUrlRef.current = nowPlayingUrl;
+  }, [nowPlayingUrl]);
+
+  // useEffect(() => {
+  //   onReadyRef.current = onReady;
+  // }, [onReady]);
 
   useEffect(() => {
     onSongEndRef.current = onSongEnd;
   }, [onSongEnd]);
 
-  useEffect(() => {
-    if (!nowPlayingUrl || !deviceIdRef.current) return;
-    const play = async () => {
-      const fresh = await fetchFreshToken();
-      const accessToken = fresh ?? tokenRef.current;
-      await fetch(
-        `https://api.spotify.com/v1/me/player/play?device_id=${deviceIdRef.current}`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ uris: [nowPlayingUrl] }),
+  const play = useCallback(async () => {
+    const currentNowPlayingUrl = nowPlayingUrlRef.current;
+    if (!currentNowPlayingUrl) {
+      console.error("No url present");
+      return;
+    }
+    const fresh = await fetchFreshToken();
+    const accessToken = fresh ?? tokenRef.current;
+    await fetch(
+      `https://api.spotify.com/v1/me/player/play?device_id=${deviceIdRef.current}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
         },
-      );
-    };
+        body: JSON.stringify({ uris: [currentNowPlayingUrl], position_ms: 0 }),
+      },
+    );
+  }, []);
+
+  useEffect(() => {
+    console.log("Nowplaying URL:", nowPlayingUrl);
+    console.log("Player active status:", isActive);
+    if (!nowPlayingUrl || !deviceIdRef.current || !isActive) return;
+    // prevTrackNameRef.current = nowPlayingUrl;
     play().catch(console.error);
-  }, [nowPlayingUrl]);
+  }, [nowPlayingUrl, isActive, play]);
+
+  // useEffect(() => {
+  //   if (!isActive || !nowPlayingUrl) return;
+  //   play().catch(console.error);
+  // }, [isActive]);
+
+  async function activateDevice(deviceId: string) {
+    const fresh = await fetchFreshToken();
+    const accessToken = fresh ?? tokenRef.current;
+    await fetch("https://api.spotify.com/v1/me/player", {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        device_ids: [deviceId],
+        play: false,
+      }),
+    });
+  }
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -140,11 +176,16 @@ export default function SpotifyWebPlayer({
 
       playerRef.current = player;
 
-      player.addListener("ready", ({ device_id }: { device_id: string }) => {
-        console.log("Ready with Device ID", device_id);
-        deviceIdRef.current = device_id;
-        onReadyRef.current?.();
-      });
+      player.addListener(
+        "ready",
+        async ({ device_id }: { device_id: string }) => {
+          console.log("Ready with Device ID", device_id);
+          deviceIdRef.current = device_id;
+          onReadyRef.current?.();
+
+          await activateDevice(device_id);
+        },
+      );
 
       player.addListener(
         "not_ready",
@@ -153,34 +194,61 @@ export default function SpotifyWebPlayer({
         },
       );
 
-      player.addListener("player_state_changed", (state) => {
+      player.addListener("player_state_changed", async (state) => {
         const s = state as ExtendedPlaybackState | null;
         if (!s) {
           setActive(false);
           return;
         }
         const track = s.track_window.current_track;
+        // console.log("TRACK Name:", track.name);
         setCurrentTrack(track);
         setPaused(s.paused);
         player.getCurrentState().then((currentState) => {
+          // console.log("CURRENT_STATE:", !!currentState);
           setActive(!!currentState);
         });
 
         // Detect end of track: paused at position 0, same track as before
-        const isSameTrack = prevTrackNameRef.current === track.name;
-        if (
-          s.paused &&
-          s.position === 0 &&
-          isSameTrack &&
-          !songEndFiredRef.current
-        ) {
-          songEndFiredRef.current = true;
-          onSongEndRef.current?.();
-        }
-        if (!s.paused || s.position > 0) {
-          songEndFiredRef.current = false;
-        }
-        prevTrackNameRef.current = track.name;
+        // console.log("PREV TRACK:", prevTrackNameRef.current);
+        // console.log("Player Track:", track.album);
+        // const isSameTrack = prevTrackNameRef.current === track.name;
+        // const isPlayerOnCurrentSong =
+        //   !!nowPlayingUrlRef.current && track.uri === nowPlayingUrlRef.current;
+        // console.log("Is player on current song:", isPlayerOnCurrentSong);
+        // console.log("Paused:", s.paused);
+        // console.log("Position:", s.position);
+        // console.log("Is same track:", isSameTrack);
+        // console.log("Song end fired:", songEndFiredRef.current);
+
+        // Play nowplaying song
+        // if (!isPlayerOnCurrentSong) {
+        // console.log("ISActive:", isActive);
+        // if (isActive && !isPlayerOnCurrentSong) {
+        //   console.log("calling play");
+        //   play().catch(console.error);
+        // }
+
+        // }
+
+        // if (
+        //   s.paused &&
+        //   s.position === 0 &&
+        //   isSameTrack &&
+        //   !songEndFiredRef.current
+        // ) {
+        //   songEndFiredRef.current = true;
+        //   if (isPlayerOnCurrentSong) {
+        //     onSongEndRef.current?.();
+        //   } else {
+        //     console.log("Calling play function");
+        //     await play();
+        //   }
+        // }
+        // if (!s.paused || s.position > 0) {
+        //   songEndFiredRef.current = false;
+        // }
+        prevTrackUrlRef.current = track.uri;
       });
 
       player.addListener("authentication_error", (error) => {
@@ -194,7 +262,7 @@ export default function SpotifyWebPlayer({
       playerRef.current?.disconnect();
       document.body.removeChild(script);
     };
-  }, [token]);
+  }, [token, play]);
 
   if (!isActive || !currentTrack) {
     return (
