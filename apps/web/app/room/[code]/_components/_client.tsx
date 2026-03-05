@@ -88,7 +88,7 @@ export default function ClientPage({
       setSearchLoading(true);
       try {
         const res = await fetch(
-          `/api/spotify/search?q=${encodeURIComponent(searchQuery)}`,
+          `/api/spotify/search?q=${encodeURIComponent(searchQuery)}&roomId=${encodeURIComponent(code)}`,
         );
         if (res.ok) {
           const data = await res.json();

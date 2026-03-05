@@ -101,7 +101,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Query is required" }, { status: 400 });
   }
 
-  const accessToken = await getValidToken(session.user.id);
+  let accessToken = await getValidToken(session.user.id);
+
+  if (!accessToken) {
+    const roomId = req.nextUrl.searchParams.get("roomId")?.trim();
+    if (roomId) {
+      const room = await prisma.room.findUnique({
+        where: { id: roomId },
+        select: { adminId: true },
+      });
+      if (room?.adminId) {
+        accessToken = await getValidToken(room.adminId);
+      }
+    }
+  }
+
   if (!accessToken) {
     return NextResponse.json(
       { error: "Spotify not connected" },
@@ -137,5 +151,8 @@ export async function GET(req: NextRequest) {
     durationMs: track.duration_ms,
   }));
 
-  return NextResponse.json({ results }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(
+    { results },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }
