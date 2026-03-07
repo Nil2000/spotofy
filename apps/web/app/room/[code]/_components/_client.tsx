@@ -602,7 +602,7 @@ export default function ClientPage({
                               whileTap={{ scale: 0.95 }}
                             >
                               <Button
-                                onClick={() => upvoteSong(song.id)}
+                                onClick={() => upvoteSong(song.id, user.userId)}
                                 disabled={!isConnected}
                                 variant="outline"
                                 className="h-auto rounded-lg bg-primary/10 hover:bg-primary/20 px-2 py-1 text-xs font-medium text-primary"

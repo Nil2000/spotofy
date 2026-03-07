@@ -128,15 +128,29 @@ async function handleUpvote(ws: WebSocket, msg: UpvoteSongMessage) {
     return send(ws, { type: "error", payload: { message: "Room not found" } });
   }
 
-  const success = await room.upvote(msg.payload.songId);
-  if (success) {
-    await sendQueueUpdate(conn.roomId, room);
-  } else {
-    send(ws, {
+  if (msg.payload.userId !== conn.user.userId) {
+    return send(ws, {
       type: "error",
-      payload: { message: "Song not found in queue" },
+      payload: { message: "Invalid upvote user" },
     });
   }
+
+  const result = await room.upvote(msg.payload.songId, conn.user.userId);
+  if (result === "success") {
+    return await sendQueueUpdate(conn.roomId, room);
+  }
+
+  if (result === "already_upvoted") {
+    return send(ws, {
+      type: "error",
+      payload: { message: "You have already upvoted this song in this room" },
+    });
+  }
+
+  return send(ws, {
+    type: "error",
+    payload: { message: "Song not found in queue" },
+  });
 }
 
 async function handleApproveSong(ws: WebSocket, msg: ApproveSongMessage) {

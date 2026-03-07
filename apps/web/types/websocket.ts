@@ -58,6 +58,7 @@ export type UpvoteSongMessage = {
   type: "upvote_song";
   payload: {
     songId: string;
+    userId: string;
   };
 };
 
@@ -184,7 +185,7 @@ export type UseWebSocketReturn = {
   pendingRequests: SongData[];
   joinRoom: (roomId: string, user: JWTPayload) => void;
   requestSong: (song: SongPayload) => void;
-  upvoteSong: (songId: string) => void;
+  upvoteSong: (songId: string, userId: string) => void;
   approveSong: (songId: string) => void;
   rejectSong: (songId: string) => void;
   sendMessage: (message: ClientMessage) => void;

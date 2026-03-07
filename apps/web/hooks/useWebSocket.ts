@@ -154,10 +154,10 @@ export function useWebSocket() {
   );
 
   const upvoteSong = useCallback(
-    (songId: string) => {
+    (songId: string, userId: string) => {
       sendMessage({
         type: "upvote_song",
-        payload: { songId },
+        payload: { songId, userId },
       });
     },
     [sendMessage],

@@ -66,6 +66,7 @@ export type UpvoteSongMessage = {
   type: "upvote_song";
   payload: {
     songId: string;
+    userId: string;
   };
 };
 

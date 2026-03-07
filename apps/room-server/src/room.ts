@@ -4,6 +4,8 @@ import type { RoomConfig, SongPayload, SongData, JWTPayload } from "./types";
 
 const songRequestTimeouts = new Map<string, NodeJS.Timeout>();
 
+type UpvoteResult = "success" | "already_upvoted" | "song_not_found";
+
 export class Room {
   private config: RoomConfig;
   private users: Map<string, JWTPayload> = new Map();
@@ -106,16 +108,36 @@ export class Room {
     };
   }
 
-  async upvote(songId: string): Promise<boolean> {
-    try {
-      await prisma.song.update({
+  async upvote(songId: string, userId: string): Promise<UpvoteResult> {
+    const result = await prisma.$transaction(async (tx) => {
+      const song = await tx.song.findFirst({
         where: { id: songId, roomId: this.config.id, status: "QUEUED" },
+        select: { id: true },
+      });
+
+      if (!song) {
+        return "song_not_found" satisfies UpvoteResult;
+      }
+
+      const insertedRows = await tx.$executeRaw`
+        INSERT INTO "song_upvote_history" ("roomId", "songId", "userId")
+        VALUES (${this.config.id}, ${songId}, ${userId})
+        ON CONFLICT ("roomId", "songId", "userId") DO NOTHING
+      `;
+
+      if (insertedRows === 0) {
+        return "already_upvoted" satisfies UpvoteResult;
+      }
+
+      await tx.song.update({
+        where: { id: songId },
         data: { upvotes: { increment: 1 } },
       });
-      return true;
-    } catch {
-      return false;
-    }
+
+      return "success" satisfies UpvoteResult;
+    });
+
+    return result;
   }
 
   async approveSong(songId: string): Promise<boolean> {
