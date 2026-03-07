@@ -10,6 +10,7 @@ import {
   Play,
   Pause,
   ChevronRight,
+  Repeat,
 } from "lucide-react";
 
 type SpotifyPlayer = {
@@ -60,6 +61,13 @@ type ExtendedPlaybackState = SpotifyPlaybackState & {
   duration: number;
 };
 
+type PlaybackSnapshot = {
+  uri: string;
+  paused: boolean;
+  position: number;
+  duration: number;
+};
+
 async function fetchFreshToken(): Promise<string | null> {
   try {
     const res = await fetch("/api/spotify/token");
@@ -83,7 +91,7 @@ export default function SpotifyWebPlayer({
   const nowPlayingUrlRef = useRef<string | null | undefined>(nowPlayingUrl);
   const onReadyRef = useRef(onReady);
   const onSongEndRef = useRef(onSongEnd);
-  const prevTrackUrlRef = useRef<string | null>(null);
+  const prevPlaybackRef = useRef<PlaybackSnapshot | null>(null);
   const songEndFiredRef = useRef(false);
   const [isPaused, setPaused] = useState(false);
   const [isActive, setActive] = useState(false);
@@ -122,6 +130,21 @@ export default function SpotifyWebPlayer({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ uris: [currentNowPlayingUrl], position_ms: 1 }),
+      },
+    );
+  }, []);
+
+  const stopRepeat = useCallback(async () => {
+    const fresh = await fetchFreshToken();
+    const accessToken = fresh ?? tokenRef.current;
+    await fetch(
+      `https://api.spotify.com/v1/me/player/repeat?state=off&device_id=${deviceIdRef.current}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
       },
     );
   }, []);
@@ -198,31 +221,44 @@ export default function SpotifyWebPlayer({
         const s = state as ExtendedPlaybackState | null;
         if (!s) {
           setActive(false);
+          prevPlaybackRef.current = null;
           return;
         }
         const track = s.track_window.current_track;
-        // console.log("TRACK Name:", track.name);
+        const prev = prevPlaybackRef.current;
+
+        const endedNaturally =
+          !!prev &&
+          !prev.paused &&
+          s.paused &&
+          s.position === 0 &&
+          prev.uri === track.uri &&
+          prev.duration > 0 &&
+          prev.position >= Math.max(0, prev.duration - 1500);
+
+        console.log("Ended naturally:", endedNaturally);
+        if (endedNaturally && !songEndFiredRef.current) {
+          songEndFiredRef.current = true;
+          onSongEndRef.current?.();
+        }
+
+        if (prev?.uri !== track.uri || (!s.paused && s.position > 0)) {
+          songEndFiredRef.current = false;
+        }
+
+        prevPlaybackRef.current = {
+          uri: track.uri,
+          paused: s.paused,
+          position: s.position,
+          duration: s.duration,
+        };
+
         setCurrentTrack(track);
         setPaused(s.paused);
         player.getCurrentState().then((currentState) => {
           // console.log("CURRENT_STATE:", !!currentState);
           setActive(!!currentState);
         });
-
-        // Detect end of running track
-        if (
-          s.paused &&
-          s.position === 0 &&
-          !!prevTrackUrlRef.current &&
-          prevTrackUrlRef.current === track.uri
-        ) {
-          songEndFiredRef.current = true;
-          // if(isPlayerOnCurrentSong){
-          console.log("Reached here for next song call");
-          onSongEndRef.current?.();
-          // }
-        }
-        prevTrackUrlRef.current = track.uri;
       });
 
       player.addListener("authentication_error", (error) => {
@@ -315,9 +351,19 @@ export default function SpotifyWebPlayer({
               variant="secondary"
               className="w-12 h-12 rounded-full bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground shrink-0 shadow-xs"
               type="button"
-              onClick={() => playerRef.current?.nextTrack()}
+              onClick={() => onSongEndRef.current?.()}
             >
               <ChevronRight />
+            </Button>
+
+            <Button
+              size="icon"
+              variant="secondary"
+              className="w-12 h-12 rounded-full bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground shrink-0 shadow-xs"
+              type="button"
+              onClick={() => stopRepeat()}
+            >
+              <Repeat className="w-5 h-5" />
             </Button>
           </div>
 

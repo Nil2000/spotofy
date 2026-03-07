@@ -340,7 +340,7 @@ export default function ClientPage({
               >
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-xl bg-linear-to-br from-accent/20 to-primary/20 flex items-center justify-center">
-                    <Plus className="w-5 h-5 text-accent" />
+                    <Plus className="w-5 h-5 text-primary/40" />
                   </div>
                   <div>
                     <h3 className="font-semibold">Request a Song</h3>
