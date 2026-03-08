@@ -8,6 +8,7 @@ import type {
   ServerMessage,
   ConnectionState,
 } from "@/types/websocket";
+import { ClientMessageSchema, ServerMessageSchema } from "@/types/websocket";
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
@@ -100,8 +101,19 @@ export function useWebSocket() {
 
       wsRef.current.onmessage = (event) => {
         try {
-          const message: ServerMessage = JSON.parse(event.data);
-          handleServerMessage(message);
+          const parsedMessage = ServerMessageSchema.safeParse(
+            JSON.parse(event.data),
+          );
+
+          if (!parsedMessage.success) {
+            console.error(
+              "Invalid WebSocket message received:",
+              parsedMessage.error,
+            );
+            return;
+          }
+
+          handleServerMessage(parsedMessage.data);
         } catch (err) {
           console.error("Failed to parse WebSocket message:", err);
         }
@@ -125,8 +137,16 @@ export function useWebSocket() {
   }, [handleServerMessage]);
 
   const sendMessage = useCallback((message: ClientMessage) => {
+    const parsedMessage = ClientMessageSchema.safeParse(message);
+
+    if (!parsedMessage.success) {
+      console.error("Invalid WebSocket message to send:", parsedMessage.error);
+      setError("Invalid WebSocket message");
+      return;
+    }
+
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(message));
+      wsRef.current.send(JSON.stringify(parsedMessage.data));
     } else {
       console.error("WebSocket is not connected");
       setError("WebSocket is not connected");

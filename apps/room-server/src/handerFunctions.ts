@@ -1,14 +1,15 @@
 import type { WebSocket } from "ws";
 import { Room } from "./room";
-import type {
-  ClientConnection,
-  IncomingMessage,
-  JoinRoomMessage,
-  RequestSongMessage,
-  UpvoteSongMessage,
-  ApproveSongMessage,
-  RejectSongMessage,
-  OutgoingMessage,
+import {
+  IncomingMessageSchema,
+  type ApproveSongMessage,
+  type ClientConnection,
+  type IncomingMessage,
+  type JoinRoomMessage,
+  type OutgoingMessage,
+  type RejectSongMessage,
+  type RequestSongMessage,
+  type UpvoteSongMessage,
 } from "./types";
 
 const roomCache = new Map<string, Room>();
@@ -270,7 +271,16 @@ async function handlePlayCurrentSong(ws: WebSocket) {
 export async function handleMessage(ws: WebSocket, raw: string) {
   let msg: IncomingMessage;
   try {
-    msg = JSON.parse(raw) as IncomingMessage;
+    const parsedMessage = IncomingMessageSchema.safeParse(JSON.parse(raw));
+
+    if (!parsedMessage.success) {
+      return send(ws, {
+        type: "error",
+        payload: { message: "Invalid message payload" },
+      });
+    }
+
+    msg = parsedMessage.data;
   } catch {
     return send(ws, { type: "error", payload: { message: "Invalid JSON" } });
   }
