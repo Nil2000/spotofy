@@ -28,7 +28,7 @@ type SpotifySearchResponse = {
   };
 };
 
-export type SearchResult = {
+type SearchResult = {
   id: string;
   name: string;
   artist: string;

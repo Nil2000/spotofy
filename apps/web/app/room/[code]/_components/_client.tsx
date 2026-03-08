@@ -26,7 +26,6 @@ import {
 import Navbar from "@/components/navbar";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import type { JWTPayload } from "@/types/websocket";
-import type { SearchResult } from "@/app/api/spotify/search/route";
 import {
   Combobox,
   ComboboxContent,
@@ -37,6 +36,16 @@ import {
 } from "@repo/ui/components/ui/combobox";
 import Image from "next/image";
 import SpotifyWebPlayer from "./spotify-player";
+
+type SearchResult = {
+  id: string;
+  name: string;
+  artist: string;
+  album: string;
+  imgUrl: string;
+  url: string;
+  durationMs: number;
+};
 
 type ClientPageProps = {
   code: string;
