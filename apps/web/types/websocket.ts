@@ -22,9 +22,9 @@ export const SongSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   artist: z.string().min(1),
-  url: z.string().url(),
+  url: z.url(),
   upvotes: z.number().int().nonnegative(),
-  imgUrl: z.string().url(),
+  imgUrl: z.url(),
 });
 
 export type Song = z.infer<typeof SongSchema>;

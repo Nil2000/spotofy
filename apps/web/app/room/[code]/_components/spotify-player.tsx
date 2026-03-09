@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Button } from "@repo/ui/components/ui/button";
 import { Slider } from "@repo/ui/components/ui/slider";
+import { toast } from "@repo/ui/components/ui/sonner";
 import {
   Volume2,
   MonitorSmartphone,
@@ -68,13 +69,40 @@ type PlaybackSnapshot = {
   duration: number;
 };
 
+function reportPlayerError(
+  message: string,
+  details?: unknown,
+  toastId?: string,
+) {
+  toast.error(message, toastId ? { id: toastId } : undefined);
+
+  if (details) {
+    console.error(message, details);
+    return;
+  }
+
+  console.error(message);
+}
+
 async function fetchFreshToken(): Promise<string | null> {
   try {
     const res = await fetch("/api/spotify/token");
-    if (!res.ok) return null;
+    if (!res.ok) {
+      reportPlayerError(
+        "Failed to refresh Spotify token.",
+        undefined,
+        "spotify-player-token-error",
+      );
+      return null;
+    }
     const data = await res.json();
     return data.accessToken ?? null;
-  } catch {
+  } catch (error) {
+    reportPlayerError(
+      "Failed to refresh Spotify token.",
+      error,
+      "spotify-player-token-error",
+    );
     return null;
   }
 }
@@ -116,12 +144,16 @@ export default function SpotifyWebPlayer({
   const play = useCallback(async () => {
     const currentNowPlayingUrl = nowPlayingUrlRef.current;
     if (!currentNowPlayingUrl) {
-      console.error("No url present");
+      reportPlayerError(
+        "No song is available to play right now.",
+        undefined,
+        "spotify-player-missing-url",
+      );
       return;
     }
     const fresh = await fetchFreshToken();
     const accessToken = fresh ?? tokenRef.current;
-    await fetch(
+    const response = await fetch(
       `https://api.spotify.com/v1/me/player/play?device_id=${deviceIdRef.current}`,
       {
         method: "PUT",
@@ -132,6 +164,14 @@ export default function SpotifyWebPlayer({
         body: JSON.stringify({ uris: [currentNowPlayingUrl], position_ms: 1 }),
       },
     );
+
+    if (!response.ok) {
+      reportPlayerError(
+        "Failed to start Spotify playback.",
+        undefined,
+        "spotify-player-play-error",
+      );
+    }
   }, []);
 
   const stopRepeat = useCallback(async () => {
@@ -165,7 +205,7 @@ export default function SpotifyWebPlayer({
   async function activateDevice(deviceId: string) {
     const fresh = await fetchFreshToken();
     const accessToken = fresh ?? tokenRef.current;
-    await fetch("https://api.spotify.com/v1/me/player", {
+    const response = await fetch("https://api.spotify.com/v1/me/player", {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -176,6 +216,14 @@ export default function SpotifyWebPlayer({
         play: false,
       }),
     });
+
+    if (!response.ok) {
+      reportPlayerError(
+        "Failed to activate the Spotify player device.",
+        undefined,
+        "spotify-player-device-error",
+      );
+    }
   }
 
   useEffect(() => {
@@ -262,7 +310,11 @@ export default function SpotifyWebPlayer({
       });
 
       player.addListener("authentication_error", (error) => {
-        console.error("Authentication error:", error);
+        reportPlayerError(
+          "Spotify player authentication failed.",
+          error,
+          "spotify-player-auth-error",
+        );
       });
 
       player.connect();

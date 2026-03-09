@@ -28,6 +28,7 @@ import { FaSpotify } from "react-icons/fa";
 import { Label } from "@repo/ui/components/ui/label";
 import { Input } from "@repo/ui/components/ui/input";
 import { Switch } from "@repo/ui/components/ui/switch";
+import { toast } from "@repo/ui/components/ui/sonner";
 import Navbar from "@/components/navbar";
 
 type Room = {
@@ -67,7 +68,11 @@ export default function AdminClient({
         if (res.ok) {
           const data = await res.json();
           setRooms(data.rooms);
+          return;
         }
+        toast.error("Failed to load rooms.", { id: "admin-load-rooms-error" });
+      } catch {
+        toast.error("Failed to load rooms.", { id: "admin-load-rooms-error" });
       } finally {
         setRoomsLoading(false);
       }
@@ -75,10 +80,16 @@ export default function AdminClient({
     fetchRooms();
   }, []);
 
-  const handleCopyCode = (id: string) => {
-    navigator.clipboard.writeText(id);
-    setCopiedCode(id);
-    setTimeout(() => setCopiedCode(null), 2000);
+  const handleCopyCode = async (id: string) => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopiedCode(id);
+      setTimeout(() => setCopiedCode(null), 2000);
+    } catch {
+      toast.error("Failed to copy room code.", {
+        id: "admin-copy-room-code-error",
+      });
+    }
   };
 
   const handleCreateRoom = async () => {
@@ -93,7 +104,9 @@ export default function AdminClient({
       });
       if (!res.ok) {
         const data = await res.json();
-        setCreateError(data.error ?? "Failed to create room");
+        const message = data.error ?? "Failed to create room";
+        setCreateError(message);
+        toast.error(message, { id: "admin-create-room-error" });
         return;
       }
       const data = await res.json();
@@ -102,7 +115,9 @@ export default function AdminClient({
       setAutoApprove(false);
       setShowCreateDialog(false);
     } catch {
-      setCreateError("Something went wrong. Please try again.");
+      const message = "Something went wrong. Please try again.";
+      setCreateError(message);
+      toast.error(message, { id: "admin-create-room-request-error" });
     } finally {
       setCreateLoading(false);
     }

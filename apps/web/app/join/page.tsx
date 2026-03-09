@@ -9,6 +9,7 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Input } from "@repo/ui/components/ui/input";
 import { Separator } from "@repo/ui/components/ui/separator";
+import { toast } from "@repo/ui/components/ui/sonner";
 import {
   ArrowRight,
   Users,
@@ -37,16 +38,22 @@ export default function JoinPage() {
     try {
       const res = await fetch(`/api/rooms/${encodeURIComponent(normalized)}`);
       if (res.status === 404) {
-        setError("Room not found. Check the code and try again.");
+        const message = "Room not found. Check the code and try again.";
+        setError(message);
+        toast.error(message, { id: "join-room-not-found" });
         return;
       }
       if (!res.ok) {
-        setError("Something went wrong. Please try again.");
+        const message = "Something went wrong. Please try again.";
+        setError(message);
+        toast.error(message, { id: "join-room-error" });
         return;
       }
       router.push(`/room/${encodeURIComponent(normalized)}`);
     } catch {
-      setError("Something went wrong. Please try again.");
+      const message = "Something went wrong. Please try again.";
+      setError(message);
+      toast.error(message, { id: "join-room-request-error" });
     } finally {
       setJoining(false);
     }

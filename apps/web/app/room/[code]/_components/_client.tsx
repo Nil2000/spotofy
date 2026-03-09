@@ -34,6 +34,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@repo/ui/components/ui/combobox";
+import { toast } from "@repo/ui/components/ui/sonner";
 import Image from "next/image";
 import SpotifyWebPlayer from "./spotify-player";
 
@@ -61,7 +62,6 @@ export default function ClientPage({
   const {
     connectionState,
     isConnected,
-    error,
     roomConfig,
     queue,
     pendingRequests,
@@ -70,7 +70,6 @@ export default function ClientPage({
     upvoteSong,
     approveSong,
     rejectSong,
-    broadcastNowPlaying,
     requestNextSong,
     users,
     nowPlaying,
@@ -104,9 +103,15 @@ export default function ClientPage({
           setSearchResults(data.results);
         } else {
           setSearchResults([]);
+          toast.error("Failed to search songs. Please try again.", {
+            id: "room-search-error",
+          });
         }
       } catch {
         setSearchResults([]);
+        toast.error("Failed to search songs. Please try again.", {
+          id: "room-search-request-error",
+        });
       } finally {
         setSearchLoading(false);
       }
@@ -165,11 +170,6 @@ export default function ClientPage({
             </div>
           }
         >
-          {error && (
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-xs">
-              {error}
-            </div>
-          )}
           <Link
             href="/join"
             className="flex items-center gap-1.5 sm:gap-2 rounded-lg border border-border bg-card/80 px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-medium hover:bg-muted hover:border-primary/30 transition-all"

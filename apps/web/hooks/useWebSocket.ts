@@ -8,18 +8,29 @@ import type {
   ServerMessage,
   ConnectionState,
 } from "@/types/websocket";
+import { toast } from "@repo/ui/components/ui/sonner";
 import { ClientMessageSchema, ServerMessageSchema } from "@/types/websocket";
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("disconnected");
-  const [error, setError] = useState<string | null>(null);
   const [roomConfig, setRoomConfig] = useState<RoomConfig | null>(null);
   const [queue, setQueue] = useState<SongData[]>([]);
   const [pendingRequests, setPendingRequests] = useState<SongData[]>([]);
   const [users, setUsers] = useState<JWTPayload[]>([]);
   const [nowPlaying, setNowPlaying] = useState<SongData | null>(null);
+
+  const reportError = useCallback(
+    (message: string, details?: unknown, toastId?: string) => {
+      toast.error(message, toastId ? { id: toastId } : undefined);
+
+      if (details) {
+        console.error(message, details);
+      }
+    },
+    [],
+  );
 
   const handleServerMessage = useCallback((message: ServerMessage) => {
     switch (message.type) {
@@ -64,8 +75,11 @@ export function useWebSocket() {
       }
 
       case "error": {
-        setError(message.payload.message);
-        console.error("Server error:", message.payload.message);
+        reportError(
+          message.payload.message,
+          undefined,
+          "websocket-server-error",
+        );
         break;
       }
 
@@ -82,7 +96,6 @@ export function useWebSocket() {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     setConnectionState("connecting");
-    setError(null);
 
     try {
       const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
@@ -90,7 +103,6 @@ export function useWebSocket() {
 
       wsRef.current.onopen = () => {
         setConnectionState("connected");
-        setError(null);
         console.log("WebSocket connected");
 
         // // Rejoin room if we were in one
@@ -106,16 +118,21 @@ export function useWebSocket() {
           );
 
           if (!parsedMessage.success) {
-            console.error(
-              "Invalid WebSocket message received:",
+            reportError(
+              "Received an invalid server message",
               parsedMessage.error,
+              "websocket-invalid-message",
             );
             return;
           }
 
           handleServerMessage(parsedMessage.data);
         } catch (err) {
-          console.error("Failed to parse WebSocket message:", err);
+          reportError(
+            "Failed to parse a server message",
+            err,
+            "websocket-parse-error",
+          );
         }
       };
 
@@ -126,32 +143,47 @@ export function useWebSocket() {
 
       wsRef.current.onerror = (err) => {
         setConnectionState("error");
-        setError("WebSocket connection error");
-        console.error("WebSocket error:", err);
+        reportError(
+          "WebSocket connection error",
+          err,
+          "websocket-connection-error",
+        );
       };
     } catch (err) {
       setConnectionState("error");
-      setError("Failed to create WebSocket connection");
-      console.error("Failed to create WebSocket:", err);
+      reportError(
+        "Failed to create WebSocket connection",
+        err,
+        "websocket-create-error",
+      );
     }
-  }, [handleServerMessage]);
+  }, [handleServerMessage, reportError]);
 
-  const sendMessage = useCallback((message: ClientMessage) => {
-    const parsedMessage = ClientMessageSchema.safeParse(message);
+  const sendMessage = useCallback(
+    (message: ClientMessage) => {
+      const parsedMessage = ClientMessageSchema.safeParse(message);
 
-    if (!parsedMessage.success) {
-      console.error("Invalid WebSocket message to send:", parsedMessage.error);
-      setError("Invalid WebSocket message");
-      return;
-    }
+      if (!parsedMessage.success) {
+        reportError(
+          "Invalid WebSocket message",
+          parsedMessage.error,
+          "websocket-outgoing-message-error",
+        );
+        return;
+      }
 
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(parsedMessage.data));
-    } else {
-      console.error("WebSocket is not connected");
-      setError("WebSocket is not connected");
-    }
-  }, []);
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify(parsedMessage.data));
+      } else {
+        reportError(
+          "WebSocket is not connected",
+          undefined,
+          "websocket-not-connected",
+        );
+      }
+    },
+    [reportError],
+  );
 
   const joinRoom = useCallback(
     (roomId: string, user: JWTPayload) => {
@@ -223,7 +255,6 @@ export function useWebSocket() {
   return {
     connectionState,
     isConnected: connectionState === "connected",
-    error,
     roomConfig,
     queue,
     pendingRequests,

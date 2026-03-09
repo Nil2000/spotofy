@@ -21,6 +21,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0",
     "@repo/db": "*",
     "dotenv-cli": "^11.0.0",
     "ws": "^8.19.0"

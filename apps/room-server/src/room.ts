@@ -1,6 +1,7 @@
 import { prisma } from "@repo/db";
 import { SONG_REQUEST_TIMEOUT } from "./constants";
 import type { RoomConfig, SongPayload, SongData, JWTPayload } from "./types";
+import { createId } from "@paralleldrive/cuid2";
 
 const songRequestTimeouts = new Map<string, NodeJS.Timeout>();
 
@@ -120,8 +121,8 @@ export class Room {
       }
 
       const insertedRows = await tx.$executeRaw`
-        INSERT INTO "song_upvote_history" ("roomId", "songId", "userId")
-        VALUES (${this.config.id}, ${songId}, ${userId})
+        INSERT INTO "song_upvote_history" ("id", "roomId", "songId", "userId", "createdAt")
+        VALUES (${createId()}, ${this.config.id}, ${songId}, ${userId}, NOW())
         ON CONFLICT ("roomId", "songId", "userId") DO NOTHING
       `;
 
