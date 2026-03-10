@@ -1,0 +1,29 @@
+{
+  "name": "room-server",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "dotenv -e ../../.env bun run src/index.ts",
+    "build": "tsc --noEmit",
+    "lint": "eslint --max-warnings 0",
+    "check-types": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "@types/bun": "latest",
+    "@types/ws": "^8.18.1",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0",
+    "@repo/db": "*",
+    "dotenv-cli": "^11.0.0",
+    "ws": "^8.19.0"
+  }
+}

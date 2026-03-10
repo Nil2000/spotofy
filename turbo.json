@@ -10,7 +10,9 @@
         "DATABASE_URL",
         "WEB_APP_URL",
         "BETTER_AUTH_SECRET",
-        "GOOGLE_CLIENT_*"
+        "GOOGLE_CLIENT_*",
+        "WS_PORT",
+        "SPOTIFY_*"
       ]
     },
     "lint": {
@@ -30,6 +32,9 @@
     "db:migrate": {
       "cache": false,
       "persistent": true
+    },
+    "db:studio": {
+      "cache": false
     },
     "db:deploy": {
       "cache": false
