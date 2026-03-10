@@ -32,65 +32,68 @@ export function useWebSocket() {
     [],
   );
 
-  const handleServerMessage = useCallback((message: ServerMessage) => {
-    switch (message.type) {
-      case "list_users": {
-        setUsers(message.payload.users);
-        break;
-      }
+  const handleServerMessage = useCallback(
+    (message: ServerMessage) => {
+      switch (message.type) {
+        case "list_users": {
+          setUsers(message.payload.users);
+          break;
+        }
 
-      case "joined_room": {
-        setRoomConfig(message.payload.config);
-        setQueue(message.payload.queue);
-        break;
-      }
+        case "joined_room": {
+          setRoomConfig(message.payload.config);
+          setQueue(message.payload.queue);
+          break;
+        }
 
-      case "queue_update": {
-        setQueue(message.payload.queue);
-        break;
-      }
+        case "queue_update": {
+          setQueue(message.payload.queue);
+          break;
+        }
 
-      case "song_requested": {
-        setPendingRequests((prev) => [...prev, message.payload.song]);
-        break;
-      }
+        case "song_requested": {
+          setPendingRequests((prev) => [...prev, message.payload.song]);
+          break;
+        }
 
-      case "song_approved": {
-        setPendingRequests((prev) =>
-          prev.filter((song) => song.id !== message.payload.songId),
-        );
-        break;
-      }
+        case "song_approved": {
+          setPendingRequests((prev) =>
+            prev.filter((song) => song.id !== message.payload.songId),
+          );
+          break;
+        }
 
-      case "song_rejected": {
-        setPendingRequests((prev) =>
-          prev.filter((song) => song.id !== message.payload.songId),
-        );
-        break;
-      }
+        case "song_rejected": {
+          setPendingRequests((prev) =>
+            prev.filter((song) => song.id !== message.payload.songId),
+          );
+          break;
+        }
 
-      case "now_playing_update": {
-        setNowPlaying(message.payload.song);
-        break;
-      }
+        case "now_playing_update": {
+          setNowPlaying(message.payload.song);
+          break;
+        }
 
-      case "error": {
-        reportError(
-          message.payload.message,
-          undefined,
-          "websocket-server-error",
-        );
-        break;
-      }
+        case "error": {
+          reportError(
+            message.payload.message,
+            undefined,
+            "websocket-server-error",
+          );
+          break;
+        }
 
-      default: {
-        console.warn(
-          "Unknown message type:",
-          (message as { type: string }).type,
-        );
+        default: {
+          console.warn(
+            "Unknown message type:",
+            (message as { type: string }).type,
+          );
+        }
       }
-    }
-  }, []);
+    },
+    [reportError],
+  );
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
