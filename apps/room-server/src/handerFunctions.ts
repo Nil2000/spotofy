@@ -63,6 +63,19 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
   connections.set(ws, { ws, user, roomId });
   room.addUser(user);
 
+  if (user.userId === room.getAdminId()) {
+    room.setAdminJoined();
+  }
+
+  if (!room.isAdminJoined()) {
+    // send message to user that admin has not joined yet
+    send(ws, {
+      type: "admin_not_joined",
+      payload: {},
+    });
+    return;
+  }
+
   const queue = await room.loadSongs();
 
   // send joined room message to self

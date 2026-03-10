@@ -10,6 +10,7 @@ type UpvoteResult = "success" | "already_upvoted" | "song_not_found";
 export class Room {
   private config: RoomConfig;
   private users: Map<string, JWTPayload> = new Map();
+  private adminJoined: boolean = false;
 
   constructor(config: RoomConfig) {
     this.config = config;
@@ -37,6 +38,14 @@ export class Room {
 
   getAdminId(): string {
     return this.config.admin;
+  }
+
+  setAdminJoined(): void {
+    this.adminJoined = true;
+  }
+
+  isAdminJoined(): boolean {
+    return this.adminJoined;
   }
 
   async getSong(songId: string): Promise<SongData | null> {

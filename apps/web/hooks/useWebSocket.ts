@@ -7,6 +7,7 @@ import type {
   ClientMessage,
   ServerMessage,
   ConnectionState,
+  JoinState,
 } from "@/types/websocket";
 import { toast } from "@repo/ui/components/ui/sonner";
 import { ClientMessageSchema, ServerMessageSchema } from "@/types/websocket";
@@ -15,6 +16,8 @@ export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("disconnected");
+  const [joinState, setJoinState] = useState<JoinState>("idle");
+  const [joinError, setJoinError] = useState<string | null>(null);
   const [roomConfig, setRoomConfig] = useState<RoomConfig | null>(null);
   const [queue, setQueue] = useState<SongData[]>([]);
   const [pendingRequests, setPendingRequests] = useState<SongData[]>([]);
@@ -41,8 +44,21 @@ export function useWebSocket() {
         }
 
         case "joined_room": {
+          setJoinState("joined");
+          setJoinError(null);
           setRoomConfig(message.payload.config);
           setQueue(message.payload.queue);
+          break;
+        }
+
+        case "admin_not_joined": {
+          setJoinState("blocked");
+          setJoinError("Admin has not joined yet.");
+          setRoomConfig(null);
+          setQueue([]);
+          setPendingRequests([]);
+          setUsers([]);
+          setNowPlaying(null);
           break;
         }
 
@@ -190,6 +206,8 @@ export function useWebSocket() {
 
   const joinRoom = useCallback(
     (roomId: string, user: JWTPayload) => {
+      setJoinState("joining");
+      setJoinError(null);
       sendMessage({
         type: "join_room",
         payload: { roomId, user },
@@ -257,6 +275,8 @@ export function useWebSocket() {
 
   return {
     connectionState,
+    joinState,
+    joinError,
     isConnected: connectionState === "connected",
     roomConfig,
     queue,

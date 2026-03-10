@@ -175,6 +175,13 @@ export const ErrorMessageSchema = z.object({
 
 export type ErrorMessage = z.infer<typeof ErrorMessageSchema>;
 
+export const AdminNotJoinedMessageSchema = z.object({
+  type: z.literal("admin_not_joined"),
+  payload: z.object({}),
+});
+
+export type AdminNotJoinedMessage = z.infer<typeof AdminNotJoinedMessageSchema>;
+
 export const JoinedRoomMessageSchema = z.object({
   type: z.literal("joined_room"),
   payload: z.object({
@@ -212,6 +219,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   SongApprovedMessageSchema,
   SongRejectedMessageSchema,
   ErrorMessageSchema,
+  AdminNotJoinedMessageSchema,
   JoinedRoomMessageSchema,
   ListUsersMessageSchema,
   NowPlayingUpdateMessageSchema,
@@ -227,8 +235,12 @@ export type ConnectionState =
   | "disconnected"
   | "error";
 
+export type JoinState = "idle" | "joining" | "joined" | "blocked";
+
 export type UseWebSocketReturn = {
   connectionState: ConnectionState;
+  joinState: JoinState;
+  joinError: string | null;
   isConnected: boolean;
   error: string | null;
   roomConfig: RoomConfig | null;

@@ -184,6 +184,13 @@ export const ErrorMessageSchema = z.object({
 
 export type ErrorMessage = z.infer<typeof ErrorMessageSchema>;
 
+export const AdminNotJoinedMessageSchema = z.object({
+  type: z.literal("admin_not_joined"),
+  payload: z.object({}),
+});
+
+export type AdminNotJoinedMessage = z.infer<typeof AdminNotJoinedMessageSchema>;
+
 export const JoinedRoomMessageSchema = z.object({
   type: z.literal("joined_room"),
   payload: z.object({
@@ -221,6 +228,7 @@ export const OutgoingMessageSchema = z.discriminatedUnion("type", [
   SongApprovedMessageSchema,
   SongRejectedMessageSchema,
   ErrorMessageSchema,
+  AdminNotJoinedMessageSchema,
   JoinedRoomMessageSchema,
   ListUsersMessageSchema,
   NowPlayingUpdateMessageSchema,
