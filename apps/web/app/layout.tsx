@@ -1,6 +1,7 @@
 import "@repo/ui/globals.css";
 
 import type { Metadata } from "next";
+import { Toaster } from "@repo/ui/components/ui/sonner";
 import { Lora, Fira_Code, Geist } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 
@@ -41,6 +42,7 @@ export default function RootLayout({
           defaultTheme="dark"
         >
           {children}
+          <Toaster richColors position="top-right" />
         </ThemeProvider>
       </body>
     </html>

@@ -1,14 +1,15 @@
 import type { WebSocket } from "ws";
 import { Room } from "./room";
-import type {
-  ClientConnection,
-  IncomingMessage,
-  JoinRoomMessage,
-  RequestSongMessage,
-  UpvoteSongMessage,
-  ApproveSongMessage,
-  RejectSongMessage,
-  OutgoingMessage,
+import {
+  IncomingMessageSchema,
+  type ApproveSongMessage,
+  type ClientConnection,
+  type IncomingMessage,
+  type JoinRoomMessage,
+  type OutgoingMessage,
+  type RejectSongMessage,
+  type RequestSongMessage,
+  type UpvoteSongMessage,
 } from "./types";
 
 const roomCache = new Map<string, Room>();
@@ -79,6 +80,19 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
     type: "list_users",
     payload: { users: room.getUsers() },
   });
+
+  // send current song to this user
+  const currentSong = await room.playCurrentSong();
+  send(ws, {
+    type: "now_playing_update",
+    payload: { song: currentSong ?? null },
+  });
+
+  // send queue update to this user
+  send(ws, {
+    type: "queue_update",
+    payload: { queue },
+  });
 }
 
 async function handleRequestSong(ws: WebSocket, msg: RequestSongMessage) {
@@ -115,15 +129,29 @@ async function handleUpvote(ws: WebSocket, msg: UpvoteSongMessage) {
     return send(ws, { type: "error", payload: { message: "Room not found" } });
   }
 
-  const success = await room.upvote(msg.payload.songId);
-  if (success) {
-    await sendQueueUpdate(conn.roomId, room);
-  } else {
-    send(ws, {
+  if (msg.payload.userId !== conn.user.userId) {
+    return send(ws, {
       type: "error",
-      payload: { message: "Song not found in queue" },
+      payload: { message: "Invalid upvote user" },
     });
   }
+
+  const result = await room.upvote(msg.payload.songId, conn.user.userId);
+  if (result === "success") {
+    return await sendQueueUpdate(conn.roomId, room);
+  }
+
+  if (result === "already_upvoted") {
+    return send(ws, {
+      type: "error",
+      payload: { message: "You have already upvoted this song in this room" },
+    });
+  }
+
+  return send(ws, {
+    type: "error",
+    payload: { message: "Song not found in queue" },
+  });
 }
 
 async function handleApproveSong(ws: WebSocket, msg: ApproveSongMessage) {
@@ -191,10 +219,68 @@ async function handleRejectSong(ws: WebSocket, msg: RejectSongMessage) {
   }
 }
 
+async function handleNextSong(ws: WebSocket) {
+  const conn = connections.get(ws);
+  if (!conn || !conn.user) {
+    return send(ws, { type: "error", payload: { message: "Not in a room" } });
+  }
+
+  const room = await getRoom(conn.roomId);
+  if (!room) {
+    return send(ws, { type: "error", payload: { message: "Room not found" } });
+  }
+
+  if (conn.user.userId !== room.getAdminId()) {
+    return send(ws, {
+      type: "error",
+      payload: { message: "Only admin can skip to next song" },
+    });
+  }
+
+  const song = await room.playNextSong();
+
+  broadcastToRoom(conn.roomId, {
+    type: "now_playing_update",
+    payload: { song: song ?? null },
+  });
+
+  await sendQueueUpdate(conn.roomId, room);
+}
+
+async function handlePlayCurrentSong(ws: WebSocket) {
+  const conn = connections.get(ws);
+  if (!conn || !conn.user) {
+    return send(ws, { type: "error", payload: { message: "Not in a room" } });
+  }
+
+  const room = await getRoom(conn.roomId);
+  if (!room) {
+    return send(ws, { type: "error", payload: { message: "Room not found" } });
+  }
+
+  const song = await room.playCurrentSong();
+
+  broadcastToRoom(conn.roomId, {
+    type: "now_playing_update",
+    payload: { song: song ?? null },
+  });
+
+  await sendQueueUpdate(conn.roomId, room);
+}
+
 export async function handleMessage(ws: WebSocket, raw: string) {
   let msg: IncomingMessage;
   try {
-    msg = JSON.parse(raw) as IncomingMessage;
+    const parsedMessage = IncomingMessageSchema.safeParse(JSON.parse(raw));
+
+    if (!parsedMessage.success) {
+      return send(ws, {
+        type: "error",
+        payload: { message: "Invalid message payload" },
+      });
+    }
+
+    msg = parsedMessage.data;
   } catch {
     return send(ws, { type: "error", payload: { message: "Invalid JSON" } });
   }
@@ -210,7 +296,12 @@ export async function handleMessage(ws: WebSocket, raw: string) {
       return handleApproveSong(ws, msg);
     case "reject_song":
       return handleRejectSong(ws, msg);
+    case "broadcast_now_playing":
+      return handlePlayCurrentSong(ws);
+    case "next_song":
+      return handleNextSong(ws);
     default:
+      console.log("MESSAGE_TYPE: ", msg);
       return send(ws, {
         type: "error",
         payload: { message: "Unknown message type" },

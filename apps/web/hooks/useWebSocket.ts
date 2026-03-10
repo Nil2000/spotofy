@@ -8,74 +8,97 @@ import type {
   ServerMessage,
   ConnectionState,
 } from "@/types/websocket";
+import { toast } from "@repo/ui/components/ui/sonner";
+import { ClientMessageSchema, ServerMessageSchema } from "@/types/websocket";
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("disconnected");
-  const [error, setError] = useState<string | null>(null);
   const [roomConfig, setRoomConfig] = useState<RoomConfig | null>(null);
   const [queue, setQueue] = useState<SongData[]>([]);
   const [pendingRequests, setPendingRequests] = useState<SongData[]>([]);
   const [users, setUsers] = useState<JWTPayload[]>([]);
+  const [nowPlaying, setNowPlaying] = useState<SongData | null>(null);
 
-  const handleServerMessage = useCallback((message: ServerMessage) => {
-    switch (message.type) {
-      case "list_users": {
-        setUsers(message.payload.users);
-        break;
-      }
+  const reportError = useCallback(
+    (message: string, details?: unknown, toastId?: string) => {
+      toast.error(message, toastId ? { id: toastId } : undefined);
 
-      case "joined_room": {
-        setRoomConfig(message.payload.config);
-        setQueue(message.payload.queue);
-        break;
+      if (details) {
+        console.error(message, details);
       }
+    },
+    [],
+  );
 
-      case "queue_update": {
-        setQueue(message.payload.queue);
-        break;
-      }
+  const handleServerMessage = useCallback(
+    (message: ServerMessage) => {
+      switch (message.type) {
+        case "list_users": {
+          setUsers(message.payload.users);
+          break;
+        }
 
-      case "song_requested": {
-        setPendingRequests((prev) => [...prev, message.payload.song]);
-        break;
-      }
+        case "joined_room": {
+          setRoomConfig(message.payload.config);
+          setQueue(message.payload.queue);
+          break;
+        }
 
-      case "song_approved": {
-        setPendingRequests((prev) =>
-          prev.filter((song) => song.id !== message.payload.songId),
-        );
-        break;
-      }
+        case "queue_update": {
+          setQueue(message.payload.queue);
+          break;
+        }
 
-      case "song_rejected": {
-        setPendingRequests((prev) =>
-          prev.filter((song) => song.id !== message.payload.songId),
-        );
-        break;
-      }
+        case "song_requested": {
+          setPendingRequests((prev) => [...prev, message.payload.song]);
+          break;
+        }
 
-      case "error": {
-        setError(message.payload.message);
-        console.error("Server error:", message.payload.message);
-        break;
-      }
+        case "song_approved": {
+          setPendingRequests((prev) =>
+            prev.filter((song) => song.id !== message.payload.songId),
+          );
+          break;
+        }
 
-      default: {
-        console.warn(
-          "Unknown message type:",
-          (message as { type: string }).type,
-        );
+        case "song_rejected": {
+          setPendingRequests((prev) =>
+            prev.filter((song) => song.id !== message.payload.songId),
+          );
+          break;
+        }
+
+        case "now_playing_update": {
+          setNowPlaying(message.payload.song);
+          break;
+        }
+
+        case "error": {
+          reportError(
+            message.payload.message,
+            undefined,
+            "websocket-server-error",
+          );
+          break;
+        }
+
+        default: {
+          console.warn(
+            "Unknown message type:",
+            (message as { type: string }).type,
+          );
+        }
       }
-    }
-  }, []);
+    },
+    [reportError],
+  );
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     setConnectionState("connecting");
-    setError(null);
 
     try {
       const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
@@ -83,7 +106,6 @@ export function useWebSocket() {
 
       wsRef.current.onopen = () => {
         setConnectionState("connected");
-        setError(null);
         console.log("WebSocket connected");
 
         // // Rejoin room if we were in one
@@ -94,10 +116,26 @@ export function useWebSocket() {
 
       wsRef.current.onmessage = (event) => {
         try {
-          const message: ServerMessage = JSON.parse(event.data);
-          handleServerMessage(message);
+          const parsedMessage = ServerMessageSchema.safeParse(
+            JSON.parse(event.data),
+          );
+
+          if (!parsedMessage.success) {
+            reportError(
+              "Received an invalid server message",
+              parsedMessage.error,
+              "websocket-invalid-message",
+            );
+            return;
+          }
+
+          handleServerMessage(parsedMessage.data);
         } catch (err) {
-          console.error("Failed to parse WebSocket message:", err);
+          reportError(
+            "Failed to parse a server message",
+            err,
+            "websocket-parse-error",
+          );
         }
       };
 
@@ -108,24 +146,47 @@ export function useWebSocket() {
 
       wsRef.current.onerror = (err) => {
         setConnectionState("error");
-        setError("WebSocket connection error");
-        console.error("WebSocket error:", err);
+        reportError(
+          "WebSocket connection error",
+          err,
+          "websocket-connection-error",
+        );
       };
     } catch (err) {
       setConnectionState("error");
-      setError("Failed to create WebSocket connection");
-      console.error("Failed to create WebSocket:", err);
+      reportError(
+        "Failed to create WebSocket connection",
+        err,
+        "websocket-create-error",
+      );
     }
-  }, [handleServerMessage]);
+  }, [handleServerMessage, reportError]);
 
-  const sendMessage = useCallback((message: ClientMessage) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(message));
-    } else {
-      console.error("WebSocket is not connected");
-      setError("WebSocket is not connected");
-    }
-  }, []);
+  const sendMessage = useCallback(
+    (message: ClientMessage) => {
+      const parsedMessage = ClientMessageSchema.safeParse(message);
+
+      if (!parsedMessage.success) {
+        reportError(
+          "Invalid WebSocket message",
+          parsedMessage.error,
+          "websocket-outgoing-message-error",
+        );
+        return;
+      }
+
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify(parsedMessage.data));
+      } else {
+        reportError(
+          "WebSocket is not connected",
+          undefined,
+          "websocket-not-connected",
+        );
+      }
+    },
+    [reportError],
+  );
 
   const joinRoom = useCallback(
     (roomId: string, user: JWTPayload) => {
@@ -148,10 +209,10 @@ export function useWebSocket() {
   );
 
   const upvoteSong = useCallback(
-    (songId: string) => {
+    (songId: string, userId: string) => {
       sendMessage({
         type: "upvote_song",
-        payload: { songId },
+        payload: { songId, userId },
       });
     },
     [sendMessage],
@@ -177,6 +238,14 @@ export function useWebSocket() {
     [sendMessage],
   );
 
+  const broadcastNowPlaying = useCallback(() => {
+    sendMessage({ type: "broadcast_now_playing" });
+  }, [sendMessage]);
+
+  const requestNextSong = useCallback(() => {
+    sendMessage({ type: "next_song" });
+  }, [sendMessage]);
+
   useEffect(() => {
     connect();
     return () => {
@@ -189,7 +258,6 @@ export function useWebSocket() {
   return {
     connectionState,
     isConnected: connectionState === "connected",
-    error,
     roomConfig,
     queue,
     pendingRequests,
@@ -198,7 +266,10 @@ export function useWebSocket() {
     upvoteSong,
     approveSong,
     rejectSong,
+    broadcastNowPlaying,
+    requestNextSong,
     sendMessage,
     users,
+    nowPlaying,
   };
 }

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@repo/db";
 import ClientPage from "./_components/_client";
-import SpotifyWebPlayer from "./_components/spotify-player";
+import { isRoomAdmin } from "@/lib/room-utils";
 
 type RoomPageProps = {
   params: { code: string };
@@ -24,7 +24,7 @@ export default async function RoomPage({ params }: RoomPageProps) {
     userId: session.user.id,
     email: session.user.email,
     username: session.user.name || session.user.email.split("@")[0] || "User",
-    isAdmin: false, // This can be extended based on your admin logic
+    isAdmin: await isRoomAdmin(code, session.user.id),
   };
 
   let spotifyToken: string | null = null;
@@ -43,12 +43,5 @@ export default async function RoomPage({ params }: RoomPageProps) {
     }
   }
 
-  return (
-    <>
-      <ClientPage code={code} user={user} />
-      {user.isAdmin && spotifyToken && (
-        <SpotifyWebPlayer token={spotifyToken} />
-      )}
-    </>
-  );
+  return <ClientPage code={code} user={user} spotifyToken={spotifyToken} />;
 }

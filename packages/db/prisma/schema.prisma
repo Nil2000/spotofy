@@ -133,3 +133,16 @@ model Song {
   @@index([roomId])
   @@map("song")
 }
+
+model SongUpvoteHistory {
+  id        String   @id @default(cuid())
+  roomId    String
+  songId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@unique([roomId, songId, userId])
+  @@index([roomId, userId])
+  @@index([songId])
+  @@map("song_upvote_history")
+}

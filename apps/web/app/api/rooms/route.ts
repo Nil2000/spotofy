@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@repo/db";
+import { z } from "zod";
+
+const createRoomBodySchema = z.object({
+  name: z.string().trim().min(1),
+  autoApprove: z.boolean().optional(),
+});
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -30,19 +36,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await req.json();
-  const { name, autoApprove } = body as { name: string; autoApprove: boolean };
+  const parsedBody = createRoomBodySchema.safeParse(await req.json());
 
-  if (!name || typeof name !== "string" || !name.trim()) {
+  if (!parsedBody.success) {
     return NextResponse.json(
       { error: "Room name is required" },
       { status: 400 },
     );
   }
 
+  const { name, autoApprove } = parsedBody.data;
+
   const room = await prisma.room.create({
     data: {
-      name: name.trim(),
+      name,
       adminId: session.user.id,
       autoApprove: autoApprove ?? false,
       maxUpvotes: 10,

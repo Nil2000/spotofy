@@ -1,21 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useDebounce } from "react-use";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button } from "@repo/ui/components/ui/button";
-import { Input } from "@repo/ui/components/ui/input";
 import {
   Music,
   ThumbsUp,
   Plus,
   Users,
   Radio,
-  Search,
-  Pause,
-  SkipForward,
-  Volume2,
   Clock,
   Crown,
   CheckCircle,
@@ -24,21 +20,48 @@ import {
   WifiOff,
   LogOut,
   Home,
+  MonitorSmartphone,
+  X,
 } from "lucide-react";
 import Navbar from "@/components/navbar";
 import { useWebSocket } from "@/hooks/useWebSocket";
-import type { JWTPayload, SongPayload } from "@/types/websocket";
+import type { JWTPayload } from "@/types/websocket";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@repo/ui/components/ui/combobox";
+import { toast } from "@repo/ui/components/ui/sonner";
+import Image from "next/image";
+import SpotifyWebPlayer from "./spotify-player";
+
+type SearchResult = {
+  id: string;
+  name: string;
+  artist: string;
+  album: string;
+  imgUrl: string;
+  url: string;
+  durationMs: number;
+};
 
 type ClientPageProps = {
   code: string;
   user: JWTPayload;
+  spotifyToken: string | null;
 };
 
-export default function ClientPage({ code, user }: ClientPageProps) {
+export default function ClientPage({
+  code,
+  user,
+  spotifyToken,
+}: ClientPageProps) {
   const {
     connectionState,
     isConnected,
-    error,
     roomConfig,
     queue,
     pendingRequests,
@@ -47,11 +70,16 @@ export default function ClientPage({ code, user }: ClientPageProps) {
     upvoteSong,
     approveSong,
     rejectSong,
+    requestNextSong,
     users,
+    nowPlaying,
   } = useWebSocket();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isAdmin] = useState(user.isAdmin);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedSong, setSelectedSong] = useState<SearchResult | null>(null);
 
   useEffect(() => {
     if (isConnected) {
@@ -59,19 +87,56 @@ export default function ClientPage({ code, user }: ClientPageProps) {
     }
   }, [isConnected, code, user, joinRoom, isAdmin]);
 
-  const handleRequestSong = () => {
-    if (!searchQuery.trim()) return;
+  useDebounce(
+    async () => {
+      if (!searchQuery.trim()) {
+        setSearchResults([]);
+        return;
+      }
+      setSearchLoading(true);
+      try {
+        const res = await fetch(
+          `/api/spotify/search?q=${encodeURIComponent(searchQuery)}&roomId=${encodeURIComponent(code)}`,
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setSearchResults(data.results);
+        } else {
+          setSearchResults([]);
+          toast.error("Failed to search songs. Please try again.", {
+            id: "room-search-error",
+          });
+        }
+      } catch {
+        setSearchResults([]);
+        toast.error("Failed to search songs. Please try again.", {
+          id: "room-search-request-error",
+        });
+      } finally {
+        setSearchLoading(false);
+      }
+    },
+    400,
+    [searchQuery],
+  );
 
-    // Parse song info from search query (this is simplified - in real app you'd search Spotify API)
-    const mockSong: SongPayload = {
-      name: searchQuery,
-      artist: "Unknown Artist",
-      url: "",
-      imgUrl: "",
-    };
-
-    requestSong(mockSong);
+  const handleSelectResult = (value: string | null) => {
+    const result = searchResults.find((r) => r.id === value);
+    if (!result) return;
+    setSelectedSong(result);
     setSearchQuery("");
+    setSearchResults([]);
+  };
+
+  const handleRequestSong = () => {
+    if (!selectedSong) return;
+    requestSong({
+      name: selectedSong.name,
+      artist: selectedSong.artist,
+      url: selectedSong.url,
+      imgUrl: selectedSong.imgUrl,
+    });
+    setSelectedSong(null);
   };
 
   const getConnectionStatusIcon = () => {
@@ -95,7 +160,6 @@ export default function ClientPage({ code, user }: ClientPageProps) {
 
       <div className="relative">
         <Navbar
-          logoSize="sm"
           className="sticky top-0 z-50 backdrop-blur-xl bg-background/70 border-b border-border/50"
           leftContent={
             <div className="flex items-center gap-2">
@@ -106,11 +170,6 @@ export default function ClientPage({ code, user }: ClientPageProps) {
             </div>
           }
         >
-          {error && (
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-xs">
-              {error}
-            </div>
-          )}
           <Link
             href="/join"
             className="flex items-center gap-1.5 sm:gap-2 rounded-lg border border-border bg-card/80 px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-medium hover:bg-muted hover:border-primary/30 transition-all"
@@ -136,106 +195,148 @@ export default function ClientPage({ code, user }: ClientPageProps) {
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl overflow-hidden shadow-2xl shadow-primary/5"
+                className="relative rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl overflow-hidden shadow-2xl shadow-primary/5"
               >
-                <div className="p-4 sm:p-6 border-b border-border/50">
+                {/* Subtle gradient background for depth */}
+                <div className="absolute inset-0 bg-linear-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
+
+                <div className="relative p-4 sm:p-6 border-b border-border/50 bg-muted/20">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                        <Radio className="w-5 h-5 text-primary" />
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary to-accent p-px shadow-lg shadow-primary/20">
+                        <div className="w-full h-full bg-card rounded-[11px] flex items-center justify-center">
+                          <Radio className="w-6 h-6 text-primary" />
+                        </div>
                       </div>
                       <div>
-                        <h2 className="font-semibold">Now Playing</h2>
-                        <p className="text-xs text-muted-foreground">
+                        <h2 className="font-bold text-lg tracking-tight">
+                          Now Playing
+                        </h2>
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Live from Spotify
                         </p>
                       </div>
                     </div>
                     <Badge
                       variant="outline"
-                      className="gap-2 px-3 py-1.5 h-auto rounded-full bg-green-500/10 border-green-500/20"
+                      className="gap-2 px-3 py-1.5 h-auto rounded-full bg-green-500/10 border-green-500/30 shadow-xs shadow-green-500/10"
                     >
-                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                      <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                      <div className="relative flex h-2 w-2">
+                        <div className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                        <div className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                      </div>
+                      <span className="text-xs font-bold text-green-600 dark:text-green-400 tracking-wide uppercase">
                         Live
                       </span>
                     </Badge>
                   </div>
                 </div>
 
-                <div className="p-4 sm:p-6">
-                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                    <div className="w-full sm:w-32 md:w-40 aspect-square sm:aspect-auto sm:h-32 md:h-40 rounded-xl bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0 mx-auto sm:mx-0">
-                      <Music className="w-12 h-12 sm:w-16 sm:h-16 text-primary/40" />
+                <div className="relative p-4 sm:p-6 sm:py-8">
+                  {isAdmin ? (
+                    spotifyToken ? (
+                      nowPlaying?.url ? (
+                        <SpotifyWebPlayer
+                          token={spotifyToken}
+                          // onReady={()}
+                          nowPlayingUrl={nowPlaying.url}
+                          onSongEnd={requestNextSong}
+                        />
+                      ) : (
+                        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-center sm:items-start">
+                          <div className="w-32 h-32 md:w-40 md:h-40 rounded-xl bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0">
+                            <Music className="w-12 h-12 text-primary/40" />
+                          </div>
+                          <div className="flex-1 flex flex-col justify-center text-center sm:text-left gap-2">
+                            <p className="text-base font-semibold">
+                              No song available to play
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              The queue is empty. Add songs to the queue to
+                              start playback.
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    ) : (
+                      <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-center sm:items-start">
+                        <div className="w-32 h-32 md:w-40 md:h-40 rounded-xl bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0">
+                          <Music className="w-12 h-12 text-primary/40" />
+                        </div>
+                        <div className="flex-1 flex flex-col justify-center text-center sm:text-left">
+                          <p className="text-sm text-muted-foreground">
+                            Connect your Spotify account to start playing music.
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  ) : nowPlaying ? (
+                    <div className="flex flex-col md:flex-row items-center md:items-stretch gap-6 md:gap-8">
+                      <div className="relative shrink-0 group mx-auto md:mx-0">
+                        <div className="absolute inset-0 bg-primary/20 rounded-2xl blur-xl group-hover:bg-primary/30 transition-colors" />
+                        <div className="relative w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 rounded-2xl overflow-hidden ring-1 ring-border/50 shadow-2xl shadow-black/40">
+                          {nowPlaying.imgUrl ? (
+                            <Image
+                              src={nowPlaying.imgUrl}
+                              alt={nowPlaying.name}
+                              fill
+                              className="object-cover transition-transform duration-700 group-hover:scale-105"
+                              sizes="(max-width: 768px) 224px, 256px"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-muted">
+                              <Music className="w-16 h-16 text-primary/30" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex-1 flex flex-col justify-center text-center md:text-left min-w-0 w-full gap-4">
+                        <div className="space-y-2">
+                          <h3 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight truncate bg-linear-to-br from-foreground to-foreground/70 bg-clip-text text-transparent pb-1">
+                            {nowPlaying.name}
+                          </h3>
+                          <p className="text-base sm:text-lg text-muted-foreground font-medium truncate">
+                            {nowPlaying.artist}
+                          </p>
+                        </div>
+                        <div className="inline-flex items-center justify-center md:justify-start gap-2.5 px-4 py-2.5 rounded-xl bg-muted/50 border border-border/50 w-fit mx-auto md:mx-0">
+                          <MonitorSmartphone className="w-4 h-4 text-primary shrink-0" />
+                          <span className="text-sm font-medium text-muted-foreground">
+                            Playing on admin&apos;s device
+                          </span>
+                          <div className="flex items-end gap-0.5 h-4 ml-1">
+                            <div
+                              className="w-1 bg-primary rounded-full animate-[equalizer_0.8s_ease-in-out_infinite]"
+                              style={{ height: "60%" }}
+                            />
+                            <div
+                              className="w-1 bg-primary rounded-full animate-[equalizer_0.8s_ease-in-out_0.2s_infinite]"
+                              style={{ height: "100%" }}
+                            />
+                            <div
+                              className="w-1 bg-primary rounded-full animate-[equalizer_0.8s_ease-in-out_0.4s_infinite]"
+                              style={{ height: "40%" }}
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex-1 flex flex-col justify-between text-center sm:text-left">
-                      <div>
-                        <p className="text-xs sm:text-sm text-muted-foreground mb-1">
-                          Track
+                  ) : (
+                    <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-center sm:items-start">
+                      <div className="w-32 h-32 md:w-40 md:h-40 rounded-xl bg-linear-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0">
+                        <Music className="w-12 h-12 text-primary/40" />
+                      </div>
+                      <div className="flex-1 flex flex-col justify-center text-center sm:text-left gap-2">
+                        <p className="text-base font-semibold">
+                          Nothing playing yet
                         </p>
-                        <h3 className="text-xl sm:text-2xl font-bold">
-                          Midnight City
-                        </h3>
-                        <p className="text-muted-foreground mt-1">M83</p>
-                      </div>
-                      <div className="mt-4">
-                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div className="h-full w-2/3 rounded-full bg-linear-to-r from-primary to-accent" />
-                        </div>
-                        <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                          <span>2:34</span>
-                          <span>4:03</span>
-                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          The admin hasn&apos;t started playing music on their
+                          device yet.
+                        </p>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="mt-6 flex items-center justify-center gap-3 sm:gap-4">
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        className="rounded-full bg-muted text-muted-foreground hover:text-foreground"
-                        type="button"
-                      >
-                        <SkipForward className="w-4 h-4 sm:w-5 sm:h-5 rotate-180" />
-                      </Button>
-                    </motion.div>
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <Button
-                        size="icon-lg"
-                        className="rounded-full bg-linear-to-r from-primary to-accent text-primary-foreground shadow-lg shadow-primary/30"
-                        type="button"
-                      >
-                        <Pause className="w-5 h-5 sm:w-6 sm:h-6" />
-                      </Button>
-                    </motion.div>
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        className="rounded-full bg-muted text-muted-foreground hover:text-foreground"
-                        type="button"
-                      >
-                        <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
-                      </Button>
-                    </motion.div>
-                    <div className="hidden sm:flex items-center gap-2 ml-4">
-                      <Volume2 className="w-4 h-4 text-muted-foreground" />
-                      <div className="w-20 h-1.5 rounded-full bg-muted">
-                        <div className="h-full w-3/4 rounded-full bg-primary" />
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </motion.section>
 
@@ -248,7 +349,7 @@ export default function ClientPage({ code, user }: ClientPageProps) {
               >
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-xl bg-linear-to-br from-accent/20 to-primary/20 flex items-center justify-center">
-                    <Plus className="w-5 h-5 text-accent" />
+                    <Plus className="w-5 h-5 text-primary/40" />
                   </div>
                   <div>
                     <h3 className="font-semibold">Request a Song</h3>
@@ -258,34 +359,115 @@ export default function ClientPage({ code, user }: ClientPageProps) {
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) =>
-                        e.key === "Enter" && handleRequestSong()
-                      }
-                      placeholder="Search for a song or paste Spotify link"
-                      className="h-auto rounded-xl border-border bg-background pl-10 sm:pl-11 pr-4 py-3 sm:py-3.5 text-sm focus-visible:ring-primary/50 focus-visible:border-primary/50"
-                      disabled={!isConnected}
-                    />
-                  </div>
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                <div className="flex flex-col gap-3">
+                  <Combobox
+                    disabled={!isConnected}
+                    inputValue={searchQuery}
+                    onInputValueChange={setSearchQuery}
+                    onValueChange={handleSelectResult}
                   >
-                    <Button
-                      onClick={handleRequestSong}
-                      disabled={!isConnected || !searchQuery.trim()}
-                      className="h-auto rounded-xl bg-linear-to-r from-accent to-accent/80 px-5 sm:px-6 py-3 sm:py-3.5 font-semibold text-accent-foreground shadow-lg shadow-accent/20 hover:shadow-accent/30"
-                      type="button"
+                    <ComboboxInput
+                      showClear={!!searchQuery}
+                      placeholder="Search for a song..."
+                      className="w-full rounded-xl"
+                    />
+                    <ComboboxContent hidden={!searchQuery}>
+                      <ComboboxList>
+                        {searchLoading ? (
+                          <div className="flex items-center justify-center py-4">
+                            <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                          </div>
+                        ) : (
+                          <>
+                            {searchResults.length === 0 && (
+                              <ComboboxEmpty>No songs found.</ComboboxEmpty>
+                            )}
+                            {searchResults.map((result) => (
+                              <ComboboxItem key={result.id} value={result.id}>
+                                {result.imgUrl ? (
+                                  <Image
+                                    src={result.imgUrl}
+                                    alt={result.name}
+                                    className="w-8 h-8 rounded-md object-cover shrink-0"
+                                    width={32}
+                                    height={32}
+                                  />
+                                ) : (
+                                  <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                    <Music className="w-3.5 h-3.5 text-muted-foreground" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">
+                                    {result.name}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {result.artist} · {result.album}
+                                  </p>
+                                </div>
+                              </ComboboxItem>
+                            ))}
+                          </>
+                        )}
+                      </ComboboxList>
+                    </ComboboxContent>
+                  </Combobox>
+
+                  {selectedSong && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      className="flex items-center gap-3 p-3 rounded-xl border border-accent/40 bg-accent/5"
                     >
-                      <Plus className="w-4 h-4" />
-                      <span className="sm:inline">Add</span>
-                    </Button>
-                  </motion.div>
+                      {selectedSong.imgUrl ? (
+                        <Image
+                          src={selectedSong.imgUrl}
+                          alt={selectedSong.name}
+                          className="w-10 h-10 rounded-lg object-cover shrink-0"
+                          width={40}
+                          height={40}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                          <Music className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">
+                          {selectedSong.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {selectedSong.artist}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <motion.div
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <Button
+                            onClick={handleRequestSong}
+                            disabled={!isConnected}
+                            className="h-auto rounded-lg bg-linear-to-r from-accent to-accent/80 px-3 py-1.5 text-sm font-semibold text-accent-foreground shadow-md shadow-accent/20"
+                            type="button"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            Add to Queue
+                          </Button>
+                        </motion.div>
+                        <Button
+                          onClick={() => setSelectedSong(null)}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                          type="button"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
                 <p className="mt-3 text-xs text-muted-foreground">
                   {roomConfig?.autoApprove
@@ -407,7 +589,13 @@ export default function ClientPage({ code, user }: ClientPageProps) {
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-linear-to-br from-primary/10 to-accent/10 flex items-center justify-center shrink-0 group-hover:from-primary/20 group-hover:to-accent/20 transition-colors">
-                            <Music className="w-4 h-4 text-primary/60" />
+                            <Image
+                              src={song.imgUrl}
+                              alt={song.name}
+                              width={40}
+                              height={40}
+                              className="rounded-lg"
+                            />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm truncate">
@@ -423,7 +611,7 @@ export default function ClientPage({ code, user }: ClientPageProps) {
                               whileTap={{ scale: 0.95 }}
                             >
                               <Button
-                                onClick={() => upvoteSong(song.id)}
+                                onClick={() => upvoteSong(song.id, user.userId)}
                                 disabled={!isConnected}
                                 variant="outline"
                                 className="h-auto rounded-lg bg-primary/10 hover:bg-primary/20 px-2 py-1 text-xs font-medium text-primary"

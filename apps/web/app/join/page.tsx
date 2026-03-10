@@ -9,6 +9,7 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Input } from "@repo/ui/components/ui/input";
 import { Separator } from "@repo/ui/components/ui/separator";
+import { toast } from "@repo/ui/components/ui/sonner";
 import {
   ArrowRight,
   Users,
@@ -37,16 +38,22 @@ export default function JoinPage() {
     try {
       const res = await fetch(`/api/rooms/${encodeURIComponent(normalized)}`);
       if (res.status === 404) {
-        setError("Room not found. Check the code and try again.");
+        const message = "Room not found. Check the code and try again.";
+        setError(message);
+        toast.error(message, { id: "join-room-not-found" });
         return;
       }
       if (!res.ok) {
-        setError("Something went wrong. Please try again.");
+        const message = "Something went wrong. Please try again.";
+        setError(message);
+        toast.error(message, { id: "join-room-error" });
         return;
       }
       router.push(`/room/${encodeURIComponent(normalized)}`);
     } catch {
-      setError("Something went wrong. Please try again.");
+      const message = "Something went wrong. Please try again.";
+      setError(message);
+      toast.error(message, { id: "join-room-request-error" });
     } finally {
       setJoining(false);
     }
@@ -81,12 +88,9 @@ export default function JoinPage() {
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_bottom_left,var(--tw-gradient-stops))] from-accent/10 via-transparent to-transparent pointer-events-none" />
 
       <div className="relative">
-        <Navbar
-          className="p-4 sm:p-6 flex items-center justify-between"
-          containerClassName="w-full"
-        />
+        <Navbar />
 
-        <div className="mx-auto flex min-h-[calc(100vh-88px)] w-full max-w-4xl flex-col px-4 pb-16">
+        <div className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-4 sm:px-6 lg:px-8 pt-20">
           <div className="flex-1 flex flex-col justify-center">
             {/* Header */}
             <motion.div

@@ -1,43 +1,60 @@
 import type { SongStatus } from "@repo/db";
 import type { WebSocket } from "ws";
 
-export type JWTPayload = {
-  userId: string;
-  email: string;
-  username: string;
-  isAdmin: boolean;
-};
+import { z } from "zod";
 
-export type Song = {
-  id: string;
-  name: string;
-  artist: string;
-  url: string;
-  upvotes: number;
-  imgUrl: string;
+export const SongStatusSchema = z.enum([
+  "REQUESTED",
+  "QUEUED",
+  "REJECTED",
+  "PLAYING",
+]) satisfies z.ZodType<SongStatus>;
+
+export const JWTPayloadSchema = z.object({
+  userId: z.string().min(1),
+  email: z.email(),
+  username: z.string().min(1),
+  isAdmin: z.boolean(),
+});
+
+export type JWTPayload = z.infer<typeof JWTPayloadSchema>;
+
+export const SongSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  artist: z.string().min(1),
+  url: z.string().url(),
+  upvotes: z.number().int().nonnegative(),
+  imgUrl: z.string().url(),
+});
+
+export type Song = z.infer<typeof SongSchema> & {
   songRequestTimeout: NodeJS.Timeout;
 };
 
-export type SongPayload = Omit<Song, "songRequestTimeout" | "id" | "upvotes">;
+export const SongPayloadSchema = SongSchema.omit({
+  id: true,
+  upvotes: true,
+});
 
-export type SongData = {
-  id: string;
-  name: string;
-  artist: string;
-  url: string;
-  upvotes: number;
-  imgUrl: string;
-  status: SongStatus;
-};
+export type SongPayload = z.infer<typeof SongPayloadSchema>;
 
-export type RoomConfig = {
-  id: string;
-  name: string;
-  admin: string;
-  maxUpvotes: number;
-  maxUsers: number;
-  autoApprove: boolean;
-};
+export const SongDataSchema = SongSchema.extend({
+  status: SongStatusSchema,
+});
+
+export type SongData = z.infer<typeof SongDataSchema>;
+
+export const RoomConfigSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  admin: z.string().min(1),
+  maxUpvotes: z.number().int().nonnegative(),
+  maxUsers: z.number().int().nonnegative(),
+  autoApprove: z.boolean(),
+});
+
+export type RoomConfig = z.infer<typeof RoomConfigSchema>;
 
 export type ClientConnection = {
   ws: WebSocket;
@@ -47,107 +64,166 @@ export type ClientConnection = {
 
 // --- WS Message Types ---
 
-export type JoinRoomMessage = {
-  type: "join_room";
-  payload: {
-    roomId: string;
-    user: JWTPayload;
-  };
-};
+export const JoinRoomMessageSchema = z.object({
+  type: z.literal("join_room"),
+  payload: z.object({
+    roomId: z.string().min(1),
+    user: JWTPayloadSchema,
+  }),
+});
 
-export type RequestSongMessage = {
-  type: "request_song";
-  payload: {
-    song: SongPayload;
-  };
-};
+export type JoinRoomMessage = z.infer<typeof JoinRoomMessageSchema>;
 
-export type UpvoteSongMessage = {
-  type: "upvote_song";
-  payload: {
-    songId: string;
-  };
-};
+export const RequestSongMessageSchema = z.object({
+  type: z.literal("request_song"),
+  payload: z.object({
+    song: SongPayloadSchema,
+  }),
+});
 
-export type ApproveSongMessage = {
-  type: "approve_song";
-  payload: {
-    songId: string;
-  };
-};
+export type RequestSongMessage = z.infer<typeof RequestSongMessageSchema>;
 
-export type RejectSongMessage = {
-  type: "reject_song";
-  payload: {
-    songId: string;
-  };
-};
+export const UpvoteSongMessageSchema = z.object({
+  type: z.literal("upvote_song"),
+  payload: z.object({
+    songId: z.string().min(1),
+    userId: z.string().min(1),
+  }),
+});
 
-export type IncomingMessage =
-  | JoinRoomMessage
-  | RequestSongMessage
-  | UpvoteSongMessage
-  | ApproveSongMessage
-  | RejectSongMessage;
+export type UpvoteSongMessage = z.infer<typeof UpvoteSongMessageSchema>;
+
+export const ApproveSongMessageSchema = z.object({
+  type: z.literal("approve_song"),
+  payload: z.object({
+    songId: z.string().min(1),
+  }),
+});
+
+export type ApproveSongMessage = z.infer<typeof ApproveSongMessageSchema>;
+
+export const RejectSongMessageSchema = z.object({
+  type: z.literal("reject_song"),
+  payload: z.object({
+    songId: z.string().min(1),
+  }),
+});
+
+export type RejectSongMessage = z.infer<typeof RejectSongMessageSchema>;
+
+export const BroadcastNowPlayingMessageSchema = z.object({
+  type: z.literal("broadcast_now_playing"),
+});
+
+export type BroadcastNowPlayingMessage = z.infer<
+  typeof BroadcastNowPlayingMessageSchema
+>;
+
+export const NextSongMessageSchema = z.object({
+  type: z.literal("next_song"),
+});
+
+export type NextSongMessage = z.infer<typeof NextSongMessageSchema>;
+
+export const IncomingMessageSchema = z.discriminatedUnion("type", [
+  JoinRoomMessageSchema,
+  RequestSongMessageSchema,
+  UpvoteSongMessageSchema,
+  ApproveSongMessageSchema,
+  RejectSongMessageSchema,
+  BroadcastNowPlayingMessageSchema,
+  NextSongMessageSchema,
+]);
+
+export type IncomingMessage = z.infer<typeof IncomingMessageSchema>;
 
 // --- Server -> Client Messages ---
 
-export type QueueUpdateMessage = {
-  type: "queue_update";
-  payload: {
-    queue: SongData[];
-  };
-};
+export const QueueUpdateMessageSchema = z.object({
+  type: z.literal("queue_update"),
+  payload: z.object({
+    queue: z.array(SongDataSchema),
+  }),
+});
 
-export type SongRequestedMessage = {
-  type: "song_requested";
-  payload: {
-    song: SongData;
-  };
-};
+export type QueueUpdateMessage = z.infer<typeof QueueUpdateMessageSchema>;
 
-export type SongApprovedMessage = {
-  type: "song_approved";
-  payload: {
-    songId: string;
-  };
-};
+export const SongRequestedMessageSchema = z.object({
+  type: z.literal("song_requested"),
+  payload: z.object({
+    song: SongDataSchema,
+  }),
+});
 
-export type SongRejectedMessage = {
-  type: "song_rejected";
-  payload: {
-    songId: string;
-  };
-};
+export type SongRequestedMessage = z.infer<typeof SongRequestedMessageSchema>;
 
-export type ErrorMessage = {
-  type: "error";
-  payload: {
-    message: string;
-  };
-};
+export const SongApprovedMessageSchema = z.object({
+  type: z.literal("song_approved"),
+  payload: z.object({
+    songId: z.string().min(1),
+  }),
+});
 
-export type JoinedRoomMessage = {
-  type: "joined_room";
-  payload: {
-    roomId: string;
-    config: RoomConfig;
-    queue: SongData[];
-  };
-};
+export type SongApprovedMessage = z.infer<typeof SongApprovedMessageSchema>;
 
-export type ListUsersMessage = {
-  type: "list_users";
-  payload: {
-    users: JWTPayload[];
-  };
-};
+export const SongRejectedMessageSchema = z.object({
+  type: z.literal("song_rejected"),
+  payload: z.object({
+    songId: z.string().min(1),
+  }),
+});
 
-export type OutgoingMessage =
-  | QueueUpdateMessage
-  | SongRequestedMessage
-  | SongApprovedMessage
-  | SongRejectedMessage
-  | ErrorMessage
-  | JoinedRoomMessage
-  | ListUsersMessage;
+export type SongRejectedMessage = z.infer<typeof SongRejectedMessageSchema>;
+
+export const ErrorMessageSchema = z.object({
+  type: z.literal("error"),
+  payload: z.object({
+    message: z.string().min(1),
+  }),
+});
+
+export type ErrorMessage = z.infer<typeof ErrorMessageSchema>;
+
+export const JoinedRoomMessageSchema = z.object({
+  type: z.literal("joined_room"),
+  payload: z.object({
+    roomId: z.string().min(1),
+    config: RoomConfigSchema,
+    queue: z.array(SongDataSchema),
+  }),
+});
+
+export type JoinedRoomMessage = z.infer<typeof JoinedRoomMessageSchema>;
+
+export const ListUsersMessageSchema = z.object({
+  type: z.literal("list_users"),
+  payload: z.object({
+    users: z.array(JWTPayloadSchema),
+  }),
+});
+
+export type ListUsersMessage = z.infer<typeof ListUsersMessageSchema>;
+
+export const NowPlayingUpdateMessageSchema = z.object({
+  type: z.literal("now_playing_update"),
+  payload: z.object({
+    song: SongDataSchema.nullable(),
+  }),
+});
+
+export type NowPlayingUpdateMessage = z.infer<
+  typeof NowPlayingUpdateMessageSchema
+>;
+
+export const OutgoingMessageSchema = z.discriminatedUnion("type", [
+  QueueUpdateMessageSchema,
+  SongRequestedMessageSchema,
+  SongApprovedMessageSchema,
+  SongRejectedMessageSchema,
+  ErrorMessageSchema,
+  JoinedRoomMessageSchema,
+  ListUsersMessageSchema,
+  NowPlayingUpdateMessageSchema,
+]);
+
+export type OutgoingMessage = z.infer<typeof OutgoingMessageSchema>;

@@ -7,6 +7,7 @@ import { Badge } from "@repo/ui/components/ui/badge";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Separator } from "@repo/ui/components/ui/separator";
+import { toast } from "@repo/ui/components/ui/sonner";
 import { signIn } from "@/lib/auth-client";
 import { Sparkles, ArrowLeft, Loader2 } from "lucide-react";
 
@@ -29,7 +30,9 @@ export function SignIn({
         callbackURL,
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to sign in");
+      const message = e instanceof Error ? e.message : "Failed to sign in";
+      setError(message);
+      toast.error(message, { id: "login-sign-in-error" });
       setLoading(false);
     }
   };
