@@ -100,18 +100,18 @@ export class Room {
       },
     });
 
-    if (!this.config.autoApproveSongs) {
-      const timeout = setTimeout(async () => {
-        songRequestTimeouts.delete(song.id);
-        await prisma.song
-          .update({
-            where: { id: song.id },
-            data: { status: "REJECTED" },
-          })
-          .catch(() => {});
-      }, SONG_REQUEST_TIMEOUT);
-      songRequestTimeouts.set(song.id, timeout);
-    }
+    // if (!this.config.autoApproveSongs) {
+    //   const timeout = setTimeout(async () => {
+    //     songRequestTimeouts.delete(song.id);
+    //     await prisma.song
+    //       .update({
+    //         where: { id: song.id },
+    //         data: { status: "REJECTED" },
+    //       })
+    //       .catch(() => {});
+    //   }, SONG_REQUEST_TIMEOUT);
+    //   songRequestTimeouts.set(song.id, timeout);
+    // }
 
     return {
       id: song.id,
@@ -162,11 +162,11 @@ export class Room {
         where: { id: songId, roomId: this.config.id, status: "REQUESTED" },
         data: { status: "QUEUED" },
       });
-      const timeout = songRequestTimeouts.get(songId);
-      if (timeout) {
-        clearTimeout(timeout);
-        songRequestTimeouts.delete(songId);
-      }
+      // const timeout = songRequestTimeouts.get(songId);
+      // if (timeout) {
+      //   clearTimeout(timeout);
+      //   songRequestTimeouts.delete(songId);
+      // }
       return true;
     } catch {
       return false;
@@ -179,11 +179,11 @@ export class Room {
         where: { id: songId, roomId: this.config.id, status: "REQUESTED" },
         data: { status: "REJECTED" },
       });
-      const timeout = songRequestTimeouts.get(songId);
-      if (timeout) {
-        clearTimeout(timeout);
-        songRequestTimeouts.delete(songId);
-      }
+      // const timeout = songRequestTimeouts.get(songId);
+      // if (timeout) {
+      //   clearTimeout(timeout);
+      //   songRequestTimeouts.delete(songId);
+      // }
       return true;
     } catch {
       return false;
