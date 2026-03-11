@@ -48,7 +48,8 @@ export const RoomConfigSchema = z.object({
   admin: z.string().min(1),
   maxUpvotes: z.number().int().nonnegative(),
   maxUsers: z.number().int().nonnegative(),
-  autoApprove: z.boolean(),
+  autoApproveSongs: z.boolean(),
+  autoApproveUsers: z.boolean(),
 });
 
 export type RoomConfig = z.infer<typeof RoomConfigSchema>;

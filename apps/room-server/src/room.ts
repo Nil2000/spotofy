@@ -32,8 +32,12 @@ export class Room {
     return this.config;
   }
 
-  isAutoApprove(): boolean {
-    return this.config.autoApprove;
+  isAutoApproveSongs(): boolean {
+    return this.config.autoApproveSongs;
+  }
+
+  isAutoApproveUsers(): boolean {
+    return this.config.autoApproveUsers;
   }
 
   getAdminId(): string {
@@ -67,7 +71,8 @@ export class Room {
           adminId,
           maxUpvotes: 10,
           maxUsers: 10,
-          autoApprove: false,
+          autoApproveSongs: false,
+          autoApproveUsers: false,
         },
       });
     }
@@ -78,7 +83,8 @@ export class Room {
       admin: dbRoom.adminId,
       maxUpvotes: dbRoom.maxUpvotes,
       maxUsers: dbRoom.maxUsers,
-      autoApprove: dbRoom.autoApprove,
+      autoApproveSongs: dbRoom.autoApproveSongs,
+      autoApproveUsers: dbRoom.autoApproveUsers,
     });
   }
 
@@ -90,11 +96,11 @@ export class Room {
         url: songPayload.url,
         imgUrl: songPayload.imgUrl,
         roomId: this.config.id,
-        status: this.config.autoApprove ? "QUEUED" : "REQUESTED",
+        status: this.config.autoApproveSongs ? "QUEUED" : "REQUESTED",
       },
     });
 
-    if (!this.config.autoApprove) {
+    if (!this.config.autoApproveSongs) {
       const timeout = setTimeout(async () => {
         songRequestTimeouts.delete(song.id);
         await prisma.song

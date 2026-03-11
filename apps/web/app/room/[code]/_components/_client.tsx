@@ -524,7 +524,7 @@ export default function ClientPage({
                     )}
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">
-                    {roomConfig?.autoApprove
+                    {roomConfig?.autoApproveSongs
                       ? "Songs are automatically approved and added to the queue."
                       : "Requests require admin approval before appearing in the queue."}
                   </p>

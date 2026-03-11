@@ -5,7 +5,8 @@ import { z } from "zod";
 
 const createRoomBodySchema = z.object({
   name: z.string().trim().min(1),
-  autoApprove: z.boolean().optional(),
+  autoApproveSongs: z.boolean().optional(),
+  autoApproveUsers: z.boolean().optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -21,7 +22,8 @@ export async function GET(req: NextRequest) {
     select: {
       id: true,
       name: true,
-      autoApprove: true,
+      autoApproveSongs: true,
+      autoApproveUsers: true,
       createdAt: true,
     },
   });
@@ -45,20 +47,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { name, autoApprove } = parsedBody.data;
+  const { name, autoApproveSongs, autoApproveUsers } = parsedBody.data;
 
   const room = await prisma.room.create({
     data: {
       name,
       adminId: session.user.id,
-      autoApprove: autoApprove ?? false,
+      autoApproveSongs: autoApproveSongs ?? false,
+      autoApproveUsers: autoApproveUsers ?? false,
       maxUpvotes: 10,
       maxUsers: 10,
     },
     select: {
       id: true,
       name: true,
-      autoApprove: true,
+      autoApproveSongs: true,
+      autoApproveUsers: true,
       createdAt: true,
     },
   });

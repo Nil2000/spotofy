@@ -121,7 +121,7 @@ async function handleRequestSong(ws: WebSocket, msg: RequestSongMessage) {
 
   const songData = await room.requestSong(msg.payload.song);
 
-  if (room.isAutoApprove()) {
+  if (room.isAutoApproveSongs()) {
     await sendQueueUpdate(conn.roomId, room);
   } else {
     sendToAdmin(conn.roomId, room, {
