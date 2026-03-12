@@ -19,6 +19,13 @@ export const JWTPayloadSchema = z.object({
 
 export type JWTPayload = z.infer<typeof JWTPayloadSchema>;
 
+export const UserShortPayloadSchema = JWTPayloadSchema.omit({
+  email: true,
+  isAdmin: true,
+});
+
+export type UserShortPayload = z.infer<typeof UserShortPayloadSchema>;
+
 export const SongSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -212,6 +219,13 @@ export const ListUsersMessageSchema = z.object({
 
 export type ListUsersMessage = z.infer<typeof ListUsersMessageSchema>;
 
+export const JoinRequestedMessageSchema = z.object({
+  type: z.literal("join_requested"),
+  payload: UserShortPayloadSchema,
+});
+
+export type JoinRequestedMessage = z.infer<typeof JoinRequestedMessageSchema>;
+
 export const NowPlayingUpdateMessageSchema = z.object({
   type: z.literal("now_playing_update"),
   payload: z.object({
@@ -232,6 +246,7 @@ export const OutgoingMessageSchema = z.discriminatedUnion("type", [
   AdminNotJoinedMessageSchema,
   JoinedRoomMessageSchema,
   ListUsersMessageSchema,
+  JoinRequestedMessageSchema,
   NowPlayingUpdateMessageSchema,
 ]);
 

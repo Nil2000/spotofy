@@ -1,6 +1,12 @@
 import { prisma } from "@repo/db";
 import { SONG_REQUEST_TIMEOUT } from "./constants";
-import type { RoomConfig, SongPayload, SongData, JWTPayload } from "./types";
+import type {
+  RoomConfig,
+  SongPayload,
+  SongData,
+  JWTPayload,
+  UserShortPayload,
+} from "./types";
 import { createId } from "@paralleldrive/cuid2";
 
 const songRequestTimeouts = new Map<string, NodeJS.Timeout>();
@@ -11,6 +17,7 @@ export class Room {
   private config: RoomConfig;
   private users: Map<string, JWTPayload> = new Map();
   private adminJoined: boolean = false;
+  private usersRequested: Map<string, UserShortPayload> = new Map();
 
   constructor(config: RoomConfig) {
     this.config = config;
@@ -50,6 +57,26 @@ export class Room {
 
   isAdminJoined(): boolean {
     return this.adminJoined;
+  }
+
+  addUsersRequest(user: JWTPayload) {
+    this.usersRequested.set(user.userId, user);
+  }
+
+  checkUserRequestedAlready(userId: string) {
+    return this.usersRequested.has(userId);
+  }
+
+  removeUserRequest(userId: string) {
+    this.usersRequested.delete(userId);
+  }
+
+  getUsersRequested(): UserShortPayload[] {
+    return Array.from(this.usersRequested.values());
+  }
+
+  clearUsersRequested(): void {
+    this.usersRequested.clear();
   }
 
   async getSong(songId: string): Promise<SongData | null> {

@@ -76,6 +76,17 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
     return;
   }
 
+  if (!room.isAutoApproveUsers()) {
+    // send to admin for approval
+    sendToAdmin(roomId, room, {
+      type: "join_requested",
+      payload: {
+        userId: user.userId,
+        username: user.username,
+      },
+    });
+  }
+
   const queue = await room.loadSongs();
 
   // send joined room message to self
@@ -118,6 +129,8 @@ async function handleRequestSong(ws: WebSocket, msg: RequestSongMessage) {
   if (!room) {
     return send(ws, { type: "error", payload: { message: "Room not found" } });
   }
+
+  // Need to add a check if same song requested by someone already
 
   const songData = await room.requestSong(msg.payload.song);
 
