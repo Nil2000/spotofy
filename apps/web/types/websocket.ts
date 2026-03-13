@@ -124,6 +124,20 @@ export const NextSongMessageSchema = z.object({
 
 export type NextSongMessage = z.infer<typeof NextSongMessageSchema>;
 
+export const ApproveUserMessageSchema = z.object({
+  type: z.literal("approve_user"),
+  payload: UserShortPayloadSchema,
+});
+
+export type ApproveUserMessage = z.infer<typeof ApproveUserMessageSchema>;
+
+export const RejectUserMessageSchema = z.object({
+  type: z.literal("reject_user"),
+  payload: UserShortPayloadSchema,
+});
+
+export type RejectUserMessage = z.infer<typeof RejectUserMessageSchema>;
+
 export const ClientMessageSchema = z.discriminatedUnion("type", [
   JoinRoomMessageSchema,
   RequestSongMessageSchema,
@@ -132,6 +146,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   RejectSongMessageSchema,
   BroadcastNowPlayingMessageSchema,
   NextSongMessageSchema,
+  ApproveUserMessageSchema,
+  RejectUserMessageSchema,
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
@@ -313,5 +329,7 @@ export type UseWebSocketReturn = {
   upvoteSong: (songId: string, userId: string) => void;
   approveSong: (songId: string) => void;
   rejectSong: (songId: string) => void;
+  approveUser: (userId: string, username: string) => void;
+  rejectUser: (userId: string, username: string) => void;
   sendMessage: (message: ClientMessage) => void;
 };

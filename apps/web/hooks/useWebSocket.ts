@@ -8,6 +8,7 @@ import type {
   ServerMessage,
   ConnectionState,
   JoinState,
+  UserShortPayload,
 } from "@/types/websocket";
 import { toast } from "@repo/ui/components/ui/sonner";
 import { ClientMessageSchema, ServerMessageSchema } from "@/types/websocket";
@@ -21,6 +22,7 @@ export function useWebSocket() {
   const [roomConfig, setRoomConfig] = useState<RoomConfig | null>(null);
   const [queue, setQueue] = useState<SongData[]>([]);
   const [pendingRequests, setPendingRequests] = useState<SongData[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<UserShortPayload[]>([]);
   const [users, setUsers] = useState<JWTPayload[]>([]);
   const [nowPlaying, setNowPlaying] = useState<SongData | null>(null);
 
@@ -83,6 +85,21 @@ export function useWebSocket() {
           setPendingRequests((prev) =>
             prev.filter((song) => song.id !== message.payload.songId),
           );
+          break;
+        }
+
+        case "users_requested_list": {
+          setPendingUsers(message.payload.users);
+          break;
+        }
+
+        case "join_requested": {
+          setPendingUsers((prev) => {
+            if (prev.some((u) => u.userId === message.payload.userId)) {
+              return prev;
+            }
+            return [...prev, message.payload];
+          });
           break;
         }
 
@@ -258,6 +275,28 @@ export function useWebSocket() {
     [sendMessage],
   );
 
+  const approveUser = useCallback(
+    (userId: string, username: string) => {
+      setPendingUsers((prev) => prev.filter((u) => u.userId !== userId));
+      sendMessage({
+        type: "approve_user",
+        payload: { userId, username },
+      });
+    },
+    [sendMessage],
+  );
+
+  const rejectUser = useCallback(
+    (userId: string, username: string) => {
+      setPendingUsers((prev) => prev.filter((u) => u.userId !== userId));
+      sendMessage({
+        type: "reject_user",
+        payload: { userId, username },
+      });
+    },
+    [sendMessage],
+  );
+
   const broadcastNowPlaying = useCallback(() => {
     sendMessage({ type: "broadcast_now_playing" });
   }, [sendMessage]);
@@ -283,11 +322,14 @@ export function useWebSocket() {
     roomConfig,
     queue,
     pendingRequests,
+    pendingUsers,
     joinRoom,
     requestSong,
     upvoteSong,
     approveSong,
     rejectSong,
+    approveUser,
+    rejectUser,
     broadcastNowPlaying,
     requestNextSong,
     sendMessage,

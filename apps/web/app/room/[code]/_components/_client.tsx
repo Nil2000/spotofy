@@ -7,6 +7,7 @@ import type { JWTPayload } from "@/types/websocket";
 import JoinStatusScreen from "./join-status-screen";
 import NowPlayingSection from "./now-playing-section";
 import PendingRequestsSection from "./pending-requests-section";
+import PendingUsersSection from "./pending-users-section";
 import QueueSidebar from "./queue-sidebar";
 import RequestSongSection from "./request-song-section";
 import RoomHeader from "./room-header";
@@ -31,11 +32,14 @@ export default function ClientPage({
     roomConfig,
     queue,
     pendingRequests,
+    pendingUsers,
     joinRoom,
     requestSong,
     upvoteSong,
     approveSong,
     rejectSong,
+    approveUser,
+    rejectUser,
     requestNextSong,
     users,
     nowPlaying,
@@ -84,11 +88,18 @@ export default function ClientPage({
                 />
 
                 {isAdmin && (
-                  <PendingRequestsSection
-                    pendingRequests={pendingRequests}
-                    approveSong={approveSong}
-                    rejectSong={rejectSong}
-                  />
+                  <>
+                    <PendingUsersSection
+                      pendingUsers={pendingUsers}
+                      approveUser={approveUser}
+                      rejectUser={rejectUser}
+                    />
+                    <PendingRequestsSection
+                      pendingRequests={pendingRequests}
+                      approveSong={approveSong}
+                      rejectSong={rejectSong}
+                    />
+                  </>
                 )}
               </div>
 
