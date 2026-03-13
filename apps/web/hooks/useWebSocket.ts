@@ -132,6 +132,8 @@ export function useWebSocket() {
 
       wsRef.current.onmessage = (event) => {
         try {
+          console.log("Received message:", event.data);
+
           const parsedMessage = ServerMessageSchema.safeParse(
             JSON.parse(event.data),
           );

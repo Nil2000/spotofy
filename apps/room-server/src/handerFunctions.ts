@@ -3,10 +3,12 @@ import { Room } from "./room";
 import {
   IncomingMessageSchema,
   type ApproveSongMessage,
+  type ApproveUserMessage,
   type ClientConnection,
   type IncomingMessage,
   type JoinRoomMessage,
   type OutgoingMessage,
+  type RejectUserMessage,
   type RejectSongMessage,
   type RequestSongMessage,
   type UpvoteSongMessage,
@@ -65,26 +67,50 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
 
   if (user.userId === room.getAdminId()) {
     room.setAdminJoined();
-  }
-
-  if (!room.isAdminJoined()) {
-    // send message to user that admin has not joined yet
-    send(ws, {
-      type: "admin_not_joined",
+    broadcastToRoom(roomId, {
+      type: "admin_joined",
       payload: {},
     });
-    return;
-  }
 
-  if (!room.isAutoApproveUsers()) {
-    // send to admin for approval
-    sendToAdmin(roomId, room, {
-      type: "join_requested",
-      payload: {
-        userId: user.userId,
-        username: user.username,
-      },
-    });
+    // send list of users requested to join
+    const userRequests = room.getUsersRequestedList();
+    if (userRequests.length > 0) {
+      send(ws, {
+        type: "users_requested_list",
+        payload: { users: userRequests },
+      });
+    }
+  } else {
+    if (!room.isAdminJoined()) {
+      // send message to user that admin has not joined yet
+      send(ws, {
+        type: "admin_not_joined",
+        payload: {},
+      });
+      return;
+    }
+    if (!room.isAutoApproveUsers()) {
+      if (room.checkUserRequestedAlready(user.userId)) {
+        // send message to user that request is already sent
+        send(ws, {
+          type: "request_already_sent",
+          payload: {},
+        });
+        return;
+      }
+
+      room.addUserRequest(user);
+
+      // send to admin for approval
+      sendToAdmin(roomId, room, {
+        type: "join_requested",
+        payload: {
+          userId: user.userId,
+          username: user.username,
+        },
+      });
+      return;
+    }
   }
 
   const queue = await room.loadSongs();
@@ -116,6 +142,52 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
   send(ws, {
     type: "queue_update",
     payload: { queue },
+  });
+}
+
+async function handleRejectUser(ws: WebSocket, msg: RejectUserMessage) {
+  const conn = connections.get(ws);
+  if (!conn || !conn.user) {
+    return send(ws, { type: "error", payload: { message: "Not in a room" } });
+  }
+
+  const room = await getRoom(conn.roomId);
+  if (!room) {
+    return send(ws, { type: "error", payload: { message: "Room not found" } });
+  }
+
+  room.removeUserRequest(msg.payload.userId);
+
+  // send to user that request is rejected
+  send(ws, {
+    type: "user_rejected",
+    payload: {
+      userId: msg.payload.userId,
+      username: msg.payload.username,
+    },
+  });
+}
+
+async function handleApproveUser(ws: WebSocket, msg: ApproveUserMessage) {
+  const conn = connections.get(ws);
+  if (!conn || !conn.user) {
+    return send(ws, { type: "error", payload: { message: "Not in a room" } });
+  }
+
+  const room = await getRoom(conn.roomId);
+  if (!room) {
+    return send(ws, { type: "error", payload: { message: "Room not found" } });
+  }
+
+  room.removeUserRequest(msg.payload.userId);
+
+  // send to user that request is approved
+  send(ws, {
+    type: "user_approved",
+    payload: {
+      userId: msg.payload.userId,
+      username: msg.payload.username,
+    },
   });
 }
 
@@ -322,6 +394,10 @@ export async function handleMessage(ws: WebSocket, raw: string) {
       return handleApproveSong(ws, msg);
     case "reject_song":
       return handleRejectSong(ws, msg);
+    case "approve_user":
+      return handleApproveUser(ws, msg);
+    case "reject_user":
+      return handleRejectUser(ws, msg);
     case "broadcast_now_playing":
       return handlePlayCurrentSong(ws);
     case "next_song":

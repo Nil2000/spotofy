@@ -18,6 +18,13 @@ export const JWTPayloadSchema = z.object({
 
 export type JWTPayload = z.infer<typeof JWTPayloadSchema>;
 
+export const UserShortPayloadSchema = JWTPayloadSchema.omit({
+  email: true,
+  isAdmin: true,
+});
+
+export type UserShortPayload = z.infer<typeof UserShortPayloadSchema>;
+
 export const SongSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -183,6 +190,13 @@ export const AdminNotJoinedMessageSchema = z.object({
 
 export type AdminNotJoinedMessage = z.infer<typeof AdminNotJoinedMessageSchema>;
 
+export const AdminJoinedMessageSchema = z.object({
+  type: z.literal("admin_joined"),
+  payload: z.object({}),
+});
+
+export type AdminJoinedMessage = z.infer<typeof AdminJoinedMessageSchema>;
+
 export const JoinedRoomMessageSchema = z.object({
   type: z.literal("joined_room"),
   payload: z.object({
@@ -203,6 +217,47 @@ export const ListUsersMessageSchema = z.object({
 
 export type ListUsersMessage = z.infer<typeof ListUsersMessageSchema>;
 
+export const JoinRequestedMessageSchema = z.object({
+  type: z.literal("join_requested"),
+  payload: UserShortPayloadSchema,
+});
+
+export type JoinRequestedMessage = z.infer<typeof JoinRequestedMessageSchema>;
+
+export const RequestAlreadySentMessageSchema = z.object({
+  type: z.literal("request_already_sent"),
+  payload: z.object({}),
+});
+
+export type RequestAlreadySentMessage = z.infer<
+  typeof RequestAlreadySentMessageSchema
+>;
+
+export const UserApprovedMessageSchema = z.object({
+  type: z.literal("user_approved"),
+  payload: UserShortPayloadSchema,
+});
+
+export type UserApprovedMessage = z.infer<typeof UserApprovedMessageSchema>;
+
+export const UserRejectedMessageSchema = z.object({
+  type: z.literal("user_rejected"),
+  payload: UserShortPayloadSchema,
+});
+
+export type UserRejectedMessage = z.infer<typeof UserRejectedMessageSchema>;
+
+export const UsersRequestedListMessageSchema = z.object({
+  type: z.literal("users_requested_list"),
+  payload: z.object({
+    users: z.array(UserShortPayloadSchema),
+  }),
+});
+
+export type UsersRequestedListMessage = z.infer<
+  typeof UsersRequestedListMessageSchema
+>;
+
 export const NowPlayingUpdateMessageSchema = z.object({
   type: z.literal("now_playing_update"),
   payload: z.object({
@@ -221,8 +276,14 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   SongRejectedMessageSchema,
   ErrorMessageSchema,
   AdminNotJoinedMessageSchema,
+  AdminJoinedMessageSchema,
   JoinedRoomMessageSchema,
   ListUsersMessageSchema,
+  JoinRequestedMessageSchema,
+  RequestAlreadySentMessageSchema,
+  UserApprovedMessageSchema,
+  UserRejectedMessageSchema,
+  UsersRequestedListMessageSchema,
   NowPlayingUpdateMessageSchema,
 ]);
 

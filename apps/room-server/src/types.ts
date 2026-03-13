@@ -119,6 +119,20 @@ export const RejectSongMessageSchema = z.object({
 
 export type RejectSongMessage = z.infer<typeof RejectSongMessageSchema>;
 
+export const ApproveUserMessageSchema = z.object({
+  type: z.literal("approve_user"),
+  payload: UserShortPayloadSchema,
+});
+
+export type ApproveUserMessage = z.infer<typeof ApproveUserMessageSchema>;
+
+export const RejectUserMessageSchema = z.object({
+  type: z.literal("reject_user"),
+  payload: UserShortPayloadSchema,
+});
+
+export type RejectUserMessage = z.infer<typeof RejectUserMessageSchema>;
+
 export const BroadcastNowPlayingMessageSchema = z.object({
   type: z.literal("broadcast_now_playing"),
 });
@@ -139,6 +153,8 @@ export const IncomingMessageSchema = z.discriminatedUnion("type", [
   UpvoteSongMessageSchema,
   ApproveSongMessageSchema,
   RejectSongMessageSchema,
+  ApproveUserMessageSchema,
+  RejectUserMessageSchema,
   BroadcastNowPlayingMessageSchema,
   NextSongMessageSchema,
 ]);
@@ -226,6 +242,47 @@ export const JoinRequestedMessageSchema = z.object({
 
 export type JoinRequestedMessage = z.infer<typeof JoinRequestedMessageSchema>;
 
+export const RequestAlreadySentMessageSchema = z.object({
+  type: z.literal("request_already_sent"),
+  payload: z.object({}),
+});
+
+export type RequestAlreadySentMessage = z.infer<
+  typeof RequestAlreadySentMessageSchema
+>;
+
+export const AdminJoinedMessageSchema = z.object({
+  type: z.literal("admin_joined"),
+  payload: z.object({}),
+});
+
+export type AdminJoinedMessage = z.infer<typeof AdminJoinedMessageSchema>;
+
+export const UserApprovedMessageSchema = z.object({
+  type: z.literal("user_approved"),
+  payload: UserShortPayloadSchema,
+});
+
+export type UserApprovedMessage = z.infer<typeof UserApprovedMessageSchema>;
+
+export const UserRejectedMessageSchema = z.object({
+  type: z.literal("user_rejected"),
+  payload: UserShortPayloadSchema,
+});
+
+export type UserRejectedMessage = z.infer<typeof UserRejectedMessageSchema>;
+
+export const UsersRequestedListMessageSchema = z.object({
+  type: z.literal("users_requested_list"),
+  payload: z.object({
+    users: z.array(UserShortPayloadSchema),
+  }),
+});
+
+export type UsersRequestedListMessage = z.infer<
+  typeof UsersRequestedListMessageSchema
+>;
+
 export const NowPlayingUpdateMessageSchema = z.object({
   type: z.literal("now_playing_update"),
   payload: z.object({
@@ -244,9 +301,14 @@ export const OutgoingMessageSchema = z.discriminatedUnion("type", [
   SongRejectedMessageSchema,
   ErrorMessageSchema,
   AdminNotJoinedMessageSchema,
+  AdminJoinedMessageSchema,
   JoinedRoomMessageSchema,
   ListUsersMessageSchema,
   JoinRequestedMessageSchema,
+  RequestAlreadySentMessageSchema,
+  UserApprovedMessageSchema,
+  UserRejectedMessageSchema,
+  UsersRequestedListMessageSchema,
   NowPlayingUpdateMessageSchema,
 ]);
 

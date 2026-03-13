@@ -59,8 +59,11 @@ export class Room {
     return this.adminJoined;
   }
 
-  addUsersRequest(user: JWTPayload) {
-    this.usersRequested.set(user.userId, user);
+  addUserRequest(user: JWTPayload) {
+    this.usersRequested.set(user.userId, {
+      userId: user.userId,
+      username: user.username,
+    });
   }
 
   checkUserRequestedAlready(userId: string) {
@@ -71,7 +74,7 @@ export class Room {
     this.usersRequested.delete(userId);
   }
 
-  getUsersRequested(): UserShortPayload[] {
+  getUsersRequestedList(): UserShortPayload[] {
     return Array.from(this.usersRequested.values());
   }
 
