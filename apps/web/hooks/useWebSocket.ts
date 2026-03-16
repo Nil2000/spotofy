@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import {
+  CLIENT_TO_SERVER_MESSAGE_TYPES,
+  SERVER_TO_CLIENT_MESSAGE_TYPES,
+} from "@/lib/constants";
 import type {
   JWTPayload,
   RoomConfig,
@@ -41,12 +45,12 @@ export function useWebSocket() {
   const handleServerMessage = useCallback(
     (message: ServerMessage) => {
       switch (message.type) {
-        case "list_users": {
+        case SERVER_TO_CLIENT_MESSAGE_TYPES.LIST_USERS: {
           setUsers(message.payload.users);
           break;
         }
 
-        case "joined_room": {
+        case SERVER_TO_CLIENT_MESSAGE_TYPES.JOINED_ROOM: {
           setJoinState("joined");
           setJoinError(null);
           setRoomConfig(message.payload.config);
@@ -54,7 +58,7 @@ export function useWebSocket() {
           break;
         }
 
-        case "admin_not_joined": {
+        case SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_NOT_JOINED: {
           setJoinState("blocked");
           setJoinError("Admin has not joined yet.");
           setRoomConfig(null);
@@ -66,41 +70,41 @@ export function useWebSocket() {
           break;
         }
 
-        case "admin_joined": {
+        case SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_JOINED: {
           setIsAdminJoined(true);
           break;
         }
 
-        case "queue_update": {
+        case SERVER_TO_CLIENT_MESSAGE_TYPES.QUEUE_UPDATE: {
           setQueue(message.payload.queue);
           break;
         }
 
-        case "song_requested": {
+        case SERVER_TO_CLIENT_MESSAGE_TYPES.SONG_REQUESTED: {
           setPendingRequests((prev) => [...prev, message.payload.song]);
           break;
         }
 
-        case "song_approved": {
+        case SERVER_TO_CLIENT_MESSAGE_TYPES.SONG_APPROVED: {
           setPendingRequests((prev) =>
             prev.filter((song) => song.id !== message.payload.songId),
           );
           break;
         }
 
-        case "song_rejected": {
+        case SERVER_TO_CLIENT_MESSAGE_TYPES.SONG_REJECTED: {
           setPendingRequests((prev) =>
             prev.filter((song) => song.id !== message.payload.songId),
           );
           break;
         }
 
-        case "users_requested_list": {
+        case SERVER_TO_CLIENT_MESSAGE_TYPES.USERS_REQUESTED_LIST: {
           setPendingUsers(message.payload.users);
           break;
         }
 
-        case "join_requested": {
+        case SERVER_TO_CLIENT_MESSAGE_TYPES.JOIN_REQUESTED: {
           setPendingUsers((prev) => {
             if (prev.some((u) => u.userId === message.payload.userId)) {
               return prev;
@@ -110,12 +114,12 @@ export function useWebSocket() {
           break;
         }
 
-        case "now_playing_update": {
+        case SERVER_TO_CLIENT_MESSAGE_TYPES.NOW_PLAYING_UPDATE: {
           setNowPlaying(message.payload.song);
           break;
         }
 
-        case "error": {
+        case SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR: {
           reportError(
             message.payload.message,
             undefined,
@@ -235,7 +239,7 @@ export function useWebSocket() {
       setJoinState("joining");
       setJoinError(null);
       sendMessage({
-        type: "join_room",
+        type: CLIENT_TO_SERVER_MESSAGE_TYPES.JOIN_ROOM,
         payload: { roomId, user },
       });
     },
@@ -245,7 +249,7 @@ export function useWebSocket() {
   const requestSong = useCallback(
     (song: SongPayload) => {
       sendMessage({
-        type: "request_song",
+        type: CLIENT_TO_SERVER_MESSAGE_TYPES.REQUEST_SONG,
         payload: { song },
       });
     },
@@ -255,7 +259,7 @@ export function useWebSocket() {
   const upvoteSong = useCallback(
     (songId: string, userId: string) => {
       sendMessage({
-        type: "upvote_song",
+        type: CLIENT_TO_SERVER_MESSAGE_TYPES.UPVOTE_SONG,
         payload: { songId, userId },
       });
     },
@@ -265,7 +269,7 @@ export function useWebSocket() {
   const approveSong = useCallback(
     (songId: string) => {
       sendMessage({
-        type: "approve_song",
+        type: CLIENT_TO_SERVER_MESSAGE_TYPES.APPROVE_SONG,
         payload: { songId },
       });
     },
@@ -275,7 +279,7 @@ export function useWebSocket() {
   const rejectSong = useCallback(
     (songId: string) => {
       sendMessage({
-        type: "reject_song",
+        type: CLIENT_TO_SERVER_MESSAGE_TYPES.REJECT_SONG,
         payload: { songId },
       });
     },
@@ -286,7 +290,7 @@ export function useWebSocket() {
     (userId: string, username: string) => {
       setPendingUsers((prev) => prev.filter((u) => u.userId !== userId));
       sendMessage({
-        type: "approve_user",
+        type: CLIENT_TO_SERVER_MESSAGE_TYPES.APPROVE_USER,
         payload: { userId, username },
       });
     },
@@ -297,7 +301,7 @@ export function useWebSocket() {
     (userId: string, username: string) => {
       setPendingUsers((prev) => prev.filter((u) => u.userId !== userId));
       sendMessage({
-        type: "reject_user",
+        type: CLIENT_TO_SERVER_MESSAGE_TYPES.REJECT_USER,
         payload: { userId, username },
       });
     },
@@ -305,11 +309,11 @@ export function useWebSocket() {
   );
 
   const broadcastNowPlaying = useCallback(() => {
-    sendMessage({ type: "broadcast_now_playing" });
+    sendMessage({ type: CLIENT_TO_SERVER_MESSAGE_TYPES.BROADCAST_NOW_PLAYING });
   }, [sendMessage]);
 
   const requestNextSong = useCallback(() => {
-    sendMessage({ type: "next_song" });
+    sendMessage({ type: CLIENT_TO_SERVER_MESSAGE_TYPES.NEXT_SONG });
   }, [sendMessage]);
 
   useEffect(() => {
