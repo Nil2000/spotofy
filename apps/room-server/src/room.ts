@@ -51,8 +51,8 @@ export class Room {
     return this.config.admin;
   }
 
-  setAdminJoined(): void {
-    this.adminJoined = true;
+  setAdminStatus(status: boolean): void {
+    this.adminJoined = status;
   }
 
   isAdminJoined(): boolean {

@@ -25,6 +25,7 @@ export function useWebSocket() {
   const [pendingUsers, setPendingUsers] = useState<UserShortPayload[]>([]);
   const [users, setUsers] = useState<JWTPayload[]>([]);
   const [nowPlaying, setNowPlaying] = useState<SongData | null>(null);
+  const [isAdminJoined, setIsAdminJoined] = useState(false);
 
   const reportError = useCallback(
     (message: string, details?: unknown, toastId?: string) => {
@@ -61,6 +62,12 @@ export function useWebSocket() {
           setPendingRequests([]);
           setUsers([]);
           setNowPlaying(null);
+          setIsAdminJoined(false);
+          break;
+        }
+
+        case "admin_joined": {
+          setIsAdminJoined(true);
           break;
         }
 
