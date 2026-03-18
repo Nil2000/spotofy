@@ -45,6 +45,15 @@ function sendToAdmin(roomId: string, room: Room, message: OutgoingMessage) {
   }
 }
 
+function sendToUser(userId: string, message: OutgoingMessage) {
+  for (const [, conn] of connections) {
+    if (conn.user?.userId === userId) {
+      send(conn.ws, message);
+      break;
+    }
+  }
+}
+
 async function sendQueueUpdate(roomId: string, room: Room) {
   const queue = await room.loadSongs();
   broadcastToRoom(roomId, {
@@ -65,9 +74,6 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
     room = await Room.findOrCreate(roomId, user.userId);
     roomCache.set(roomId, room);
   }
-
-  connections.set(ws, { ws, user, roomId });
-  room.addUser(user);
 
   if (user.userId === room.getAdminId()) {
     room.setAdminStatus(true);
@@ -103,7 +109,7 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
         return;
       }
 
-      room.addUserRequest(user);
+      room.addUserRequest(user, ws);
 
       // send to admin for approval
       sendToAdmin(roomId, room, {
@@ -116,6 +122,9 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
       return;
     }
   }
+
+  connections.set(ws, { ws, user, roomId });
+  room.addUser(user);
 
   const queue = await room.loadSongs();
 
@@ -195,10 +204,54 @@ async function handleApproveUser(ws: WebSocket, msg: ApproveUserMessage) {
     });
   }
 
+  // add the user in the list
+  for (const user of room.getUsersRequestedList()) {
+    if (user.userId === msg.payload.userId) {
+      room.addUser({
+        userId: user.userId,
+        email: user.email,
+        username: user.username,
+        isAdmin: user.isAdmin,
+      });
+      break;
+    }
+  }
+
+  const queue = await room.loadSongs();
+
+  // send joined message to user
+  sendToUser(msg.payload.userId, {
+    type: SERVER_TO_CLIENT_MESSAGE_TYPES.JOINED_ROOM,
+    payload: {
+      roomId: conn.roomId,
+      config: room.getConfig(),
+      queue,
+    },
+  });
+
+  // send list users message to all users in room
+  broadcastToRoom(conn.roomId, {
+    type: SERVER_TO_CLIENT_MESSAGE_TYPES.LIST_USERS,
+    payload: { users: room.getUsers() },
+  });
+
+  // send current song to this user
+  const currentSong = await room.playCurrentSong();
+  sendToUser(msg.payload.userId, {
+    type: SERVER_TO_CLIENT_MESSAGE_TYPES.NOW_PLAYING_UPDATE,
+    payload: { song: currentSong ?? null },
+  });
+
+  // send queue update to this user
+  sendToUser(msg.payload.userId, {
+    type: SERVER_TO_CLIENT_MESSAGE_TYPES.QUEUE_UPDATE,
+    payload: { queue },
+  });
+
   room.removeUserRequest(msg.payload.userId);
 
   // send to user that request is approved
-  send(ws, {
+  sendToUser(msg.payload.userId, {
     type: SERVER_TO_CLIENT_MESSAGE_TYPES.USER_APPROVED,
     payload: {
       userId: msg.payload.userId,

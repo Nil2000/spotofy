@@ -8,16 +8,21 @@ import type {
   UserShortPayload,
 } from "./types";
 import { createId } from "@paralleldrive/cuid2";
+import type { WebSocket } from "ws";
 
 const songRequestTimeouts = new Map<string, NodeJS.Timeout>();
 
 type UpvoteResult = "success" | "already_upvoted" | "song_not_found";
 
+type UserPayloadWithWs = JWTPayload & {
+  ws: WebSocket;
+};
+
 export class Room {
   private config: RoomConfig;
   private users: Map<string, JWTPayload> = new Map();
   private adminJoined: boolean = false;
-  private usersRequested: Map<string, UserShortPayload> = new Map();
+  private usersRequested: Map<string, UserPayloadWithWs> = new Map();
 
   constructor(config: RoomConfig) {
     this.config = config;
@@ -59,10 +64,13 @@ export class Room {
     return this.adminJoined;
   }
 
-  addUserRequest(user: JWTPayload) {
+  addUserRequest(user: JWTPayload, ws: WebSocket) {
     this.usersRequested.set(user.userId, {
       userId: user.userId,
       username: user.username,
+      email: user.email,
+      isAdmin: user.isAdmin,
+      ws,
     });
   }
 
@@ -74,7 +82,7 @@ export class Room {
     this.usersRequested.delete(userId);
   }
 
-  getUsersRequestedList(): UserShortPayload[] {
+  getUsersRequestedList(): UserPayloadWithWs[] {
     return Array.from(this.usersRequested.values());
   }
 
