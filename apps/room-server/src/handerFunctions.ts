@@ -167,6 +167,15 @@ async function handleRejectUser(ws: WebSocket, msg: RejectUserMessage) {
     });
   }
 
+  // check if user is admin
+  if (!conn.user.isAdmin) {
+    return send(ws, {
+      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      payload: { message: "User is not admin" },
+    });
+  }
+
+  // get room
   const room = await getRoom(conn.roomId);
   if (!room) {
     return send(ws, {
@@ -175,15 +184,12 @@ async function handleRejectUser(ws: WebSocket, msg: RejectUserMessage) {
     });
   }
 
+  // remove from the user requested list
   room.removeUserRequest(msg.payload.userId);
 
   // send to user that request is rejected
-  send(ws, {
+  sendToUser(msg.payload.userId, {
     type: SERVER_TO_CLIENT_MESSAGE_TYPES.USER_REJECTED,
-    payload: {
-      userId: msg.payload.userId,
-      username: msg.payload.username,
-    },
   });
 }
 
@@ -204,18 +210,43 @@ async function handleApproveUser(ws: WebSocket, msg: ApproveUserMessage) {
     });
   }
 
-  // add the user in the list
-  for (const user of room.getUsersRequestedList()) {
-    if (user.userId === msg.payload.userId) {
-      room.addUser({
-        userId: user.userId,
-        email: user.email,
-        username: user.username,
-        isAdmin: user.isAdmin,
-      });
-      break;
-    }
+  // check if user is admin
+  if (!conn.user.isAdmin) {
+    return send(ws, {
+      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      payload: { message: "User is not admin" },
+    });
   }
+
+  // get the user from requested list
+  const user = room.getUserRequested(msg.payload.userId);
+  if (!user) {
+    return send(ws, {
+      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      payload: { message: "User not found in requested list" },
+    });
+  }
+
+  // add to connection and user list
+  connections.set(user.ws, {
+    ws: user.ws,
+    user: {
+      userId: user.userId,
+      username: user.username,
+      email: user.email,
+      isAdmin: user.isAdmin,
+    },
+    roomId: conn.roomId,
+  });
+  room.addUser({
+    userId: user.userId,
+    email: user.email,
+    username: user.username,
+    isAdmin: user.isAdmin,
+  });
+
+  // remove the user from requested list
+  room.removeUserRequest(msg.payload.userId);
 
   const queue = await room.loadSongs();
 

@@ -82,8 +82,15 @@ export class Room {
     this.usersRequested.delete(userId);
   }
 
-  getUsersRequestedList(): UserPayloadWithWs[] {
-    return Array.from(this.usersRequested.values());
+  getUsersRequestedList(): UserShortPayload[] {
+    return Array.from(this.usersRequested.values()).map((user) => ({
+      userId: user.userId,
+      username: user.username,
+    }));
+  }
+
+  getUserRequested(userId: string): UserPayloadWithWs | undefined {
+    return this.usersRequested.get(userId);
   }
 
   clearUsersRequested(): void {

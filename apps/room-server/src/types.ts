@@ -271,7 +271,6 @@ export type UserApprovedMessage = z.infer<typeof UserApprovedMessageSchema>;
 
 export const UserRejectedMessageSchema = z.object({
   type: z.literal(SERVER_TO_CLIENT_MESSAGE_TYPES.USER_REJECTED),
-  payload: UserShortPayloadSchema,
 });
 
 export type UserRejectedMessage = z.infer<typeof UserRejectedMessageSchema>;
