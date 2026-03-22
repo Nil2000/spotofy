@@ -13,16 +13,16 @@ export const SongStatusSchema = z.enum([
   "PLAYING",
 ]) satisfies z.ZodType<SongStatus>;
 
-export const JWTPayloadSchema = z.object({
+export const UserPayloadSchema = z.object({
   userId: z.string().min(1),
   email: z.email(),
   username: z.string().min(1),
   isAdmin: z.boolean(),
 });
 
-export type JWTPayload = z.infer<typeof JWTPayloadSchema>;
+export type UserPayload = z.infer<typeof UserPayloadSchema>;
 
-export const UserShortPayloadSchema = JWTPayloadSchema.omit({
+export const UserShortPayloadSchema = UserPayloadSchema.omit({
   email: true,
   isAdmin: true,
 });
@@ -71,7 +71,7 @@ export const JoinRoomMessageSchema = z.object({
   type: z.literal(CLIENT_TO_SERVER_MESSAGE_TYPES.JOIN_ROOM),
   payload: z.object({
     roomId: z.string().min(1),
-    user: JWTPayloadSchema,
+    user: UserPayloadSchema,
   }),
 });
 
@@ -210,6 +210,13 @@ export const AdminNotJoinedMessageSchema = z.object({
 
 export type AdminNotJoinedMessage = z.infer<typeof AdminNotJoinedMessageSchema>;
 
+export const AdminLeftMessageSchema = z.object({
+  type: z.literal(SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_LEFT),
+  payload: z.object({}),
+});
+
+export type AdminLeftMessage = z.infer<typeof AdminLeftMessageSchema>;
+
 export const AdminJoinedMessageSchema = z.object({
   type: z.literal(SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_JOINED),
   payload: z.object({}),
@@ -231,7 +238,7 @@ export type JoinedRoomMessage = z.infer<typeof JoinedRoomMessageSchema>;
 export const ListUsersMessageSchema = z.object({
   type: z.literal(SERVER_TO_CLIENT_MESSAGE_TYPES.LIST_USERS),
   payload: z.object({
-    users: z.array(JWTPayloadSchema),
+    users: z.array(UserPayloadSchema),
   }),
 });
 
@@ -296,6 +303,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   SongRejectedMessageSchema,
   ErrorMessageSchema,
   AdminNotJoinedMessageSchema,
+  AdminLeftMessageSchema,
   AdminJoinedMessageSchema,
   JoinedRoomMessageSchema,
   ListUsersMessageSchema,
@@ -328,7 +336,7 @@ export type UseWebSocketReturn = {
   roomConfig: RoomConfig | null;
   queue: SongData[];
   pendingRequests: SongData[];
-  joinRoom: (roomId: string, user: JWTPayload) => void;
+  joinRoom: (roomId: string, user: UserPayload) => void;
   requestSong: (song: SongPayload) => void;
   upvoteSong: (songId: string, userId: string) => void;
   approveSong: (songId: string) => void;

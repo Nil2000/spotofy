@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
 import { useWebSocket } from "@/hooks/useWebSocket";
-import type { JWTPayload } from "@/types/websocket";
+import type { UserPayload } from "@/types/websocket";
 import JoinStatusScreen from "./join-status-screen";
 import NowPlayingSection from "./now-playing-section";
 import PendingRequestsSection from "./pending-requests-section";
@@ -15,7 +14,7 @@ import UsersSidebar from "./users-sidebar";
 
 type ClientPageProps = {
   code: string;
-  user: JWTPayload;
+  user: UserPayload;
   spotifyToken: string | null;
 };
 

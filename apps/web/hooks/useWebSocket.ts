@@ -4,7 +4,7 @@ import {
   SERVER_TO_CLIENT_MESSAGE_TYPES,
 } from "@/lib/constants";
 import type {
-  JWTPayload,
+  UserPayload,
   RoomConfig,
   SongData,
   SongPayload,
@@ -27,7 +27,7 @@ export function useWebSocket() {
   const [queue, setQueue] = useState<SongData[]>([]);
   const [pendingRequests, setPendingRequests] = useState<SongData[]>([]);
   const [pendingUsers, setPendingUsers] = useState<UserShortPayload[]>([]);
-  const [users, setUsers] = useState<JWTPayload[]>([]);
+  const [users, setUsers] = useState<UserPayload[]>([]);
   const [nowPlaying, setNowPlaying] = useState<SongData | null>(null);
   const [isAdminJoined, setIsAdminJoined] = useState(false);
 
@@ -72,6 +72,11 @@ export function useWebSocket() {
 
         case SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_JOINED: {
           setIsAdminJoined(true);
+          break;
+        }
+
+        case SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_LEFT: {
+          setIsAdminJoined(false);
           break;
         }
 
@@ -235,7 +240,7 @@ export function useWebSocket() {
   );
 
   const joinRoom = useCallback(
-    (roomId: string, user: JWTPayload) => {
+    (roomId: string, user: UserPayload) => {
       setJoinState("joining");
       setJoinError(null);
       sendMessage({

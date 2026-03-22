@@ -21,6 +21,7 @@ export const SERVER_TO_CLIENT_MESSAGE_TYPES = {
   SONG_REJECTED: "song_rejected",
   ERROR: "error",
   ADMIN_NOT_JOINED: "admin_not_joined",
+  ADMIN_LEFT: "admin_left",
   ADMIN_JOINED: "admin_joined",
   JOINED_ROOM: "joined_room",
   LIST_USERS: "list_users",
