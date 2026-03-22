@@ -14,16 +14,16 @@ export const SongStatusSchema = z.enum([
   "PLAYING",
 ]) satisfies z.ZodType<SongStatus>;
 
-export const JWTPayloadSchema = z.object({
+export const UserPayloadSchema = z.object({
   userId: z.string().min(1),
   email: z.email(),
   username: z.string().min(1),
   isAdmin: z.boolean(),
 });
 
-export type JWTPayload = z.infer<typeof JWTPayloadSchema>;
+export type UserPayload = z.infer<typeof UserPayloadSchema>;
 
-export const UserShortPayloadSchema = JWTPayloadSchema.omit({
+export const UserShortPayloadSchema = UserPayloadSchema.omit({
   email: true,
   isAdmin: true,
 });
@@ -70,8 +70,9 @@ export type RoomConfig = z.infer<typeof RoomConfigSchema>;
 
 export type ClientConnection = {
   ws: WebSocket;
-  user: JWTPayload | null;
+  user: UserPayload | null;
   roomId: string;
+  status: "joined" | "pending";
 };
 
 // --- WS Message Types ---
@@ -80,7 +81,7 @@ export const JoinRoomMessageSchema = z.object({
   type: z.literal(CLIENT_TO_SERVER_MESSAGE_TYPES.JOIN_ROOM),
   payload: z.object({
     roomId: z.string().min(1),
-    user: JWTPayloadSchema,
+    user: UserPayloadSchema,
   }),
 });
 
@@ -219,6 +220,13 @@ export const AdminNotJoinedMessageSchema = z.object({
 
 export type AdminNotJoinedMessage = z.infer<typeof AdminNotJoinedMessageSchema>;
 
+export const AdminLeftMessageSchema = z.object({
+  type: z.literal(SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_LEFT),
+  payload: z.object({}),
+});
+
+export type AdminLeftMessage = z.infer<typeof AdminLeftMessageSchema>;
+
 export const JoinedRoomMessageSchema = z.object({
   type: z.literal(SERVER_TO_CLIENT_MESSAGE_TYPES.JOINED_ROOM),
   payload: z.object({
@@ -233,7 +241,7 @@ export type JoinedRoomMessage = z.infer<typeof JoinedRoomMessageSchema>;
 export const ListUsersMessageSchema = z.object({
   type: z.literal(SERVER_TO_CLIENT_MESSAGE_TYPES.LIST_USERS),
   payload: z.object({
-    users: z.array(JWTPayloadSchema),
+    users: z.array(UserPayloadSchema),
   }),
 });
 
@@ -305,6 +313,7 @@ export const OutgoingMessageSchema = z.discriminatedUnion("type", [
   ErrorMessageSchema,
   AdminNotJoinedMessageSchema,
   AdminJoinedMessageSchema,
+  AdminLeftMessageSchema,
   JoinedRoomMessageSchema,
   ListUsersMessageSchema,
   JoinRequestedMessageSchema,

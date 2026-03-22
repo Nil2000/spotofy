@@ -4,7 +4,7 @@ import type {
   RoomConfig,
   SongPayload,
   SongData,
-  JWTPayload,
+  UserPayload,
   UserShortPayload,
 } from "./types";
 import { createId } from "@paralleldrive/cuid2";
@@ -14,13 +14,13 @@ const songRequestTimeouts = new Map<string, NodeJS.Timeout>();
 
 type UpvoteResult = "success" | "already_upvoted" | "song_not_found";
 
-type UserPayloadWithWs = JWTPayload & {
+type UserPayloadWithWs = UserPayload & {
   ws: WebSocket;
 };
 
 export class Room {
   private config: RoomConfig;
-  private users: Map<string, JWTPayload> = new Map();
+  private users: Map<string, UserPayload> = new Map();
   private adminJoined: boolean = false;
   private usersRequested: Map<string, UserPayloadWithWs> = new Map();
 
@@ -28,7 +28,7 @@ export class Room {
     this.config = config;
   }
 
-  addUser(user: JWTPayload): void {
+  addUser(user: UserPayload): void {
     this.users.set(user.userId, user);
   }
 
@@ -36,7 +36,7 @@ export class Room {
     this.users.delete(userId);
   }
 
-  getUsers(): JWTPayload[] {
+  getUsers(): UserPayload[] {
     return Array.from(this.users.values());
   }
 
@@ -64,7 +64,7 @@ export class Room {
     return this.adminJoined;
   }
 
-  addUserRequest(user: JWTPayload, ws: WebSocket) {
+  addUserRequest(user: UserPayload, ws: WebSocket) {
     this.usersRequested.set(user.userId, {
       userId: user.userId,
       username: user.username,

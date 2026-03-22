@@ -29,7 +29,7 @@ function send(ws: WebSocket, message: OutgoingMessage) {
 
 function broadcastToRoom(roomId: string, message: OutgoingMessage) {
   for (const [, conn] of connections) {
-    if (conn.roomId === roomId) {
+    if (conn.roomId === roomId && conn.status === "joined") {
       send(conn.ws, message);
     }
   }
@@ -75,6 +75,8 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
     roomCache.set(roomId, room);
   }
 
+  connections.set(ws, { ws, user, roomId, status: "pending" });
+
   if (user.userId === room.getAdminId()) {
     room.setAdminStatus(true);
     broadcastToRoom(roomId, {
@@ -97,6 +99,8 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
         type: SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_NOT_JOINED,
         payload: {},
       });
+
+      room.addUserRequest(user, ws);
       return;
     }
     if (!room.isAutoApproveUsers()) {
@@ -123,7 +127,7 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
     }
   }
 
-  connections.set(ws, { ws, user, roomId });
+  connections.get(ws)!.status = "joined";
   room.addUser(user);
 
   const queue = await room.loadSongs();
@@ -237,6 +241,7 @@ async function handleApproveUser(ws: WebSocket, msg: ApproveUserMessage) {
       isAdmin: user.isAdmin,
     },
     roomId: conn.roomId,
+    status: "joined",
   });
   room.addUser({
     userId: user.userId,
@@ -278,8 +283,6 @@ async function handleApproveUser(ws: WebSocket, msg: ApproveUserMessage) {
     type: SERVER_TO_CLIENT_MESSAGE_TYPES.QUEUE_UPDATE,
     payload: { queue },
   });
-
-  room.removeUserRequest(msg.payload.userId);
 
   // send to user that request is approved
   sendToUser(msg.payload.userId, {
@@ -564,9 +567,17 @@ export function handleDisconnect(ws: WebSocket) {
     room.setAdminStatus(false);
 
     // TODO: notify other users that admin left
+    broadcastToRoom(conn.roomId, {
+      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_LEFT,
+      payload: {},
+    });
   }
 
-  room.removeUser(conn.user.userId);
+  if (conn.status === "joined") {
+    room.removeUser(conn.user.userId);
+  } else {
+    room.removeUserRequest(conn.user.userId);
+  }
 
   broadcastToRoom(conn.roomId, {
     type: SERVER_TO_CLIENT_MESSAGE_TYPES.LIST_USERS,
