@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { motion } from "motion/react";
-import { Clock, LogOut } from "lucide-react";
+import { AlertCircle, Clock, LogOut } from "lucide-react";
 
 import type { ConnectionState, JoinState } from "@/types/websocket";
 import ConnectionStatusIcon from "./connection-status-icon";
@@ -16,12 +16,21 @@ export default function JoinStatusScreen({
   joinState,
   joinError,
 }: JoinStatusScreenProps) {
-  const joinStatusTitle =
-    joinState === "blocked" ? "Admin has not joined yet" : "Joining room";
+  const isWaitingForAdminApproval =
+    joinState === "blocked" || joinState === "joining";
+  const isRejected = joinState === "rejected";
 
-  const joinStatusDescription =
-    joinState === "blocked"
-      ? "Please wait for the admin to join this room first. You’ll be able to access the room once the admin is online."
+  const joinStatusTitle = isRejected
+    ? "Entry rejected by admin"
+    : isWaitingForAdminApproval
+      ? "Waiting for your entry approval by admin"
+      : "Joining room";
+
+  const joinStatusDescription = isRejected
+    ? (joinError ??
+      "Your entry request was rejected by the admin. Please go back and try again later.")
+    : isWaitingForAdminApproval
+      ? "Please wait while the admin approves your entry into the room."
       : connectionState === "error"
         ? "There was a problem connecting to the room server."
         : connectionState === "disconnected"
@@ -39,7 +48,9 @@ export default function JoinStatusScreen({
         <div className="absolute inset-0 bg-linear-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
         <div className="relative flex flex-col items-center text-center gap-5">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-primary/20 to-accent/20">
-            {joinState === "blocked" ? (
+            {isRejected ? (
+              <AlertCircle className="w-8 h-8 text-red-500" />
+            ) : joinState === "blocked" ? (
               <Clock className="w-8 h-8 text-primary" />
             ) : (
               <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />

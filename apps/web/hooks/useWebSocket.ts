@@ -60,10 +60,23 @@ export function useWebSocket() {
 
         case SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_NOT_JOINED: {
           setJoinState("blocked");
-          setJoinError("Admin has not joined yet.");
+          setJoinError(null);
           setRoomConfig(null);
           setQueue([]);
           setPendingRequests([]);
+          setUsers([]);
+          setNowPlaying(null);
+          setIsAdminJoined(false);
+          break;
+        }
+
+        case SERVER_TO_CLIENT_MESSAGE_TYPES.USER_REJECTED: {
+          setJoinState("rejected");
+          setJoinError("Your entry request was rejected by the admin.");
+          setRoomConfig(null);
+          setQueue([]);
+          setPendingRequests([]);
+          setPendingUsers([]);
           setUsers([]);
           setNowPlaying(null);
           setIsAdminJoined(false);
