@@ -34,7 +34,8 @@ import Navbar from "@/components/navbar";
 type Room = {
   id: string;
   name: string;
-  autoApprove: boolean;
+  autoApproveSongs: boolean;
+  autoApproveUsers: boolean;
   createdAt: string;
 };
 
@@ -54,7 +55,8 @@ export default function AdminClient({
 }) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [roomName, setRoomName] = useState("");
-  const [autoApprove, setAutoApprove] = useState(false);
+  const [autoApproveSongs, setAutoApproveSongs] = useState(false);
+  const [autoApproveUsers, setAutoApproveUsers] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(true);
@@ -100,7 +102,11 @@ export default function AdminClient({
       const res = await fetch("/api/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: roomName.trim(), autoApprove }),
+        body: JSON.stringify({
+          name: roomName.trim(),
+          autoApproveSongs,
+          autoApproveUsers,
+        }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -112,7 +118,8 @@ export default function AdminClient({
       const data = await res.json();
       setRooms((prev) => [data.room, ...prev]);
       setRoomName("");
-      setAutoApprove(false);
+      setAutoApproveSongs(false);
+      setAutoApproveUsers(false);
       setShowCreateDialog(false);
     } catch {
       const message = "Something went wrong. Please try again.";
@@ -130,9 +137,6 @@ export default function AdminClient({
 
       <div className="relative">
         <Navbar>
-          <Link href="/">
-            <Button variant="outline">Home</Button>
-          </Link>
           {isSpotifyConnected ? (
             <Button
               className="border-green-500/40 bg-green-500/15 text-green-600 hover:bg-green-500/25"
@@ -268,7 +272,8 @@ export default function AdminClient({
                             <h3 className="font-semibold truncate">
                               {room.name}
                             </h3>
-                            {room.autoApprove && (
+                            {(room.autoApproveSongs ||
+                              room.autoApproveUsers) && (
                               <Badge
                                 variant="outline"
                                 className="gap-1 px-2 py-0.5 h-auto rounded-full bg-primary/10 border-primary/20 text-primary text-xs font-medium shrink-0"
@@ -277,6 +282,26 @@ export default function AdminClient({
                                 Auto-approve
                               </Badge>
                             )}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <Badge
+                              variant="outline"
+                              className="rounded-full text-[11px] font-medium"
+                            >
+                              Songs:{" "}
+                              {room.autoApproveSongs
+                                ? "Auto-approved"
+                                : "Manual"}
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className="rounded-full text-[11px] font-medium"
+                            >
+                              Users:{" "}
+                              {room.autoApproveUsers
+                                ? "Auto-approved"
+                                : "Manual"}
+                            </Badge>
                           </div>
                           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                             <span className="font-mono font-semibold tracking-wider text-foreground/70">
@@ -410,7 +435,25 @@ export default function AdminClient({
                   Skip manual approval for song requests
                 </p>
               </div>
-              <Switch checked={autoApprove} onCheckedChange={setAutoApprove} />
+              <Switch
+                checked={autoApproveSongs}
+                onCheckedChange={setAutoApproveSongs}
+                disabled={createLoading}
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">Auto-approve users</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Let users join immediately without manual approval
+                </p>
+              </div>
+              <Switch
+                checked={autoApproveUsers}
+                onCheckedChange={setAutoApproveUsers}
+                disabled={createLoading}
+              />
             </div>
 
             <div className="rounded-xl border border-border/50 bg-background/50 px-4 py-3 flex items-center gap-2 text-xs text-muted-foreground">
