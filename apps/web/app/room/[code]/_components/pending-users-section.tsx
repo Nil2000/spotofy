@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { CheckCircle, Clock, UserPlus, XCircle } from "lucide-react";
+import { CheckCircle, UserPlus, XCircle } from "lucide-react";
 
 import { Button } from "@repo/ui/components/ui/button";
 import type { UserShortPayload } from "@/types/websocket";
@@ -58,7 +58,10 @@ export default function PendingUsersSection({
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
                 <Button
                   onClick={() => approveUser(user.userId, user.username)}
                   variant="outline"
@@ -69,7 +72,10 @@ export default function PendingUsersSection({
                   Approve
                 </Button>
               </motion.div>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
                 <Button
                   onClick={() => rejectUser(user.userId, user.username)}
                   variant="outline"

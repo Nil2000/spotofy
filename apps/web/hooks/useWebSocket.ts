@@ -347,6 +347,7 @@ export function useWebSocket() {
     connectionState,
     joinState,
     joinError,
+    isAdminJoined,
     isConnected: connectionState === "connected",
     roomConfig,
     queue,
