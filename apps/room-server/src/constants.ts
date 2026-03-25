@@ -1,5 +1,3 @@
-export const SONG_REQUEST_TIMEOUT = 10000;
-
 export const CLIENT_TO_SERVER_MESSAGE_TYPES = {
   JOIN_ROOM: "join_room",
   REQUEST_SONG: "request_song",

@@ -1,5 +1,4 @@
 import { prisma } from "@repo/db";
-import { SONG_REQUEST_TIMEOUT } from "./constants";
 import type {
   RoomConfig,
   SongPayload,
@@ -9,8 +8,6 @@ import type {
 } from "./types";
 import { createId } from "@paralleldrive/cuid2";
 import type { WebSocket } from "ws";
-
-const songRequestTimeouts = new Map<string, NodeJS.Timeout>();
 
 type UpvoteResult = "success" | "already_upvoted" | "song_not_found";
 
