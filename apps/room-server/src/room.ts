@@ -1,21 +1,31 @@
 import { prisma } from "@repo/db";
-import { SONG_REQUEST_TIMEOUT } from "./constants";
-import type { RoomConfig, SongPayload, SongData, JWTPayload } from "./types";
+import type {
+  RoomConfig,
+  SongPayload,
+  SongData,
+  UserPayload,
+  UserShortPayload,
+} from "./types";
 import { createId } from "@paralleldrive/cuid2";
-
-const songRequestTimeouts = new Map<string, NodeJS.Timeout>();
+import type { WebSocket } from "ws";
 
 type UpvoteResult = "success" | "already_upvoted" | "song_not_found";
 
+type UserPayloadWithWs = UserPayload & {
+  ws: WebSocket;
+};
+
 export class Room {
   private config: RoomConfig;
-  private users: Map<string, JWTPayload> = new Map();
+  private users: Map<string, UserPayload> = new Map();
+  private adminJoined: boolean = false;
+  private usersRequested: Map<string, UserPayloadWithWs> = new Map();
 
   constructor(config: RoomConfig) {
     this.config = config;
   }
 
-  addUser(user: JWTPayload): void {
+  addUser(user: UserPayload): void {
     this.users.set(user.userId, user);
   }
 
@@ -23,7 +33,7 @@ export class Room {
     this.users.delete(userId);
   }
 
-  getUsers(): JWTPayload[] {
+  getUsers(): UserPayload[] {
     return Array.from(this.users.values());
   }
 
@@ -31,12 +41,57 @@ export class Room {
     return this.config;
   }
 
-  isAutoApprove(): boolean {
-    return this.config.autoApprove;
+  isAutoApproveSongs(): boolean {
+    return this.config.autoApproveSongs;
+  }
+
+  isAutoApproveUsers(): boolean {
+    return this.config.autoApproveUsers;
   }
 
   getAdminId(): string {
     return this.config.admin;
+  }
+
+  setAdminStatus(status: boolean): void {
+    this.adminJoined = status;
+  }
+
+  isAdminJoined(): boolean {
+    return this.adminJoined;
+  }
+
+  addUserRequest(user: UserPayload, ws: WebSocket) {
+    this.usersRequested.set(user.userId, {
+      userId: user.userId,
+      username: user.username,
+      email: user.email,
+      isAdmin: user.isAdmin,
+      ws,
+    });
+  }
+
+  checkUserRequestedAlready(userId: string) {
+    return this.usersRequested.has(userId);
+  }
+
+  removeUserRequest(userId: string) {
+    this.usersRequested.delete(userId);
+  }
+
+  getUsersRequestedList(): UserShortPayload[] {
+    return Array.from(this.usersRequested.values()).map((user) => ({
+      userId: user.userId,
+      username: user.username,
+    }));
+  }
+
+  getUserRequested(userId: string): UserPayloadWithWs | undefined {
+    return this.usersRequested.get(userId);
+  }
+
+  clearUsersRequested(): void {
+    this.usersRequested.clear();
   }
 
   async getSong(songId: string): Promise<SongData | null> {
@@ -58,7 +113,8 @@ export class Room {
           adminId,
           maxUpvotes: 10,
           maxUsers: 10,
-          autoApprove: false,
+          autoApproveSongs: false,
+          autoApproveUsers: false,
         },
       });
     }
@@ -69,7 +125,8 @@ export class Room {
       admin: dbRoom.adminId,
       maxUpvotes: dbRoom.maxUpvotes,
       maxUsers: dbRoom.maxUsers,
-      autoApprove: dbRoom.autoApprove,
+      autoApproveSongs: dbRoom.autoApproveSongs,
+      autoApproveUsers: dbRoom.autoApproveUsers,
     });
   }
 
@@ -81,22 +138,22 @@ export class Room {
         url: songPayload.url,
         imgUrl: songPayload.imgUrl,
         roomId: this.config.id,
-        status: this.config.autoApprove ? "QUEUED" : "REQUESTED",
+        status: this.config.autoApproveSongs ? "QUEUED" : "REQUESTED",
       },
     });
 
-    if (!this.config.autoApprove) {
-      const timeout = setTimeout(async () => {
-        songRequestTimeouts.delete(song.id);
-        await prisma.song
-          .update({
-            where: { id: song.id },
-            data: { status: "REJECTED" },
-          })
-          .catch(() => {});
-      }, SONG_REQUEST_TIMEOUT);
-      songRequestTimeouts.set(song.id, timeout);
-    }
+    // if (!this.config.autoApproveSongs) {
+    //   const timeout = setTimeout(async () => {
+    //     songRequestTimeouts.delete(song.id);
+    //     await prisma.song
+    //       .update({
+    //         where: { id: song.id },
+    //         data: { status: "REJECTED" },
+    //       })
+    //       .catch(() => {});
+    //   }, SONG_REQUEST_TIMEOUT);
+    //   songRequestTimeouts.set(song.id, timeout);
+    // }
 
     return {
       id: song.id,
@@ -147,11 +204,11 @@ export class Room {
         where: { id: songId, roomId: this.config.id, status: "REQUESTED" },
         data: { status: "QUEUED" },
       });
-      const timeout = songRequestTimeouts.get(songId);
-      if (timeout) {
-        clearTimeout(timeout);
-        songRequestTimeouts.delete(songId);
-      }
+      // const timeout = songRequestTimeouts.get(songId);
+      // if (timeout) {
+      //   clearTimeout(timeout);
+      //   songRequestTimeouts.delete(songId);
+      // }
       return true;
     } catch {
       return false;
@@ -164,11 +221,11 @@ export class Room {
         where: { id: songId, roomId: this.config.id, status: "REQUESTED" },
         data: { status: "REJECTED" },
       });
-      const timeout = songRequestTimeouts.get(songId);
-      if (timeout) {
-        clearTimeout(timeout);
-        songRequestTimeouts.delete(songId);
-      }
+      // const timeout = songRequestTimeouts.get(songId);
+      // if (timeout) {
+      //   clearTimeout(timeout);
+      //   songRequestTimeouts.delete(songId);
+      // }
       return true;
     } catch {
       return false;
