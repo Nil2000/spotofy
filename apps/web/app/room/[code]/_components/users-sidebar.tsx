@@ -2,10 +2,10 @@ import { motion } from "motion/react";
 import { Crown, Users } from "lucide-react";
 
 import { Badge } from "@repo/ui/components/ui/badge";
-import type { JWTPayload } from "@/types/websocket";
+import type { UserPayload } from "@/types/websocket";
 
 type UsersSidebarProps = {
-  users: JWTPayload[];
+  users: UserPayload[];
   currentUserId: string;
 };
 
