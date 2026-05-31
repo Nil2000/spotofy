@@ -11,6 +11,8 @@ import type { WebSocket } from "ws";
 
 type UpvoteResult = "success" | "already_upvoted" | "song_not_found";
 
+export type RequestSongResult = SongData | "duplicate";
+
 type UserPayloadWithWs = UserPayload & {
   ws: WebSocket;
 };
@@ -134,9 +136,22 @@ export class Room {
     });
   }
 
-  async requestSong(songPayload: SongPayload): Promise<SongData> {
+  async requestSong(songPayload: SongPayload): Promise<RequestSongResult> {
+    const existing = await prisma.song.findFirst({
+      where: {
+        roomId: this.config.id,
+        songId: songPayload.songId,
+        status: { in: ["REQUESTED", "QUEUED", "PLAYING"] },
+      },
+    });
+
+    if (existing) {
+      return "duplicate";
+    }
+
     const song = await prisma.song.create({
       data: {
+        songId: songPayload.songId,
         name: songPayload.name,
         artist: songPayload.artist,
         url: songPayload.url,
@@ -161,6 +176,7 @@ export class Room {
 
     return {
       id: song.id,
+      songId: song.songId,
       name: song.name,
       artist: song.artist,
       url: song.url,
@@ -249,6 +265,7 @@ export class Room {
     });
     return songs.map((s) => ({
       id: s.id,
+      songId: s.songId,
       name: s.name,
       artist: s.artist,
       url: s.url,
@@ -265,6 +282,7 @@ export class Room {
     });
     return songs.map((s) => ({
       id: s.id,
+      songId: s.songId,
       name: s.name,
       artist: s.artist,
       url: s.url,
@@ -281,6 +299,7 @@ export class Room {
     if (song) {
       return {
         id: song.id,
+        songId: song.songId,
         name: song.name,
         artist: song.artist,
         url: song.url,
@@ -315,6 +334,7 @@ export class Room {
 
     return {
       id: updated.id,
+      songId: updated.songId,
       name: updated.name,
       artist: updated.artist,
       url: updated.url,

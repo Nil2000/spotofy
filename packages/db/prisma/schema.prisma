@@ -121,6 +121,7 @@ enum SongStatus {
 
 model Song {
   id        String     @id @default(cuid())
+  songId    String
   name      String
   artist    String
   url       String
@@ -132,6 +133,7 @@ model Song {
   createdAt DateTime   @default(now())
 
   @@index([roomId])
+  @@index([roomId, songId])
   @@map("song")
 }
 

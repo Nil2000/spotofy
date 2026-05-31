@@ -31,6 +31,7 @@ export type UserShortPayload = z.infer<typeof UserShortPayloadSchema>;
 
 export const SongSchema = z.object({
   id: z.string().min(1),
+  songId: z.string().min(1),
   name: z.string().min(1),
   artist: z.string().min(1),
   url: z.url(),

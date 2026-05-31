@@ -328,9 +328,18 @@ async function handleRequestSong(ws: WebSocket, msg: RequestSongMessage) {
     });
   }
 
-  // Need to add a check if same song requested by someone already
+  const result = await room.requestSong(msg.payload.song);
 
-  const songData = await room.requestSong(msg.payload.song);
+  if (result === "duplicate") {
+    return send(ws, {
+      type: ServerEvents.ERROR,
+      payload: {
+        message: "This song is already in the queue or pending approval",
+      },
+    });
+  }
+
+  const songData = result;
 
   if (room.isAutoApproveSongs()) {
     await sendQueueUpdate(conn.roomId, room);
