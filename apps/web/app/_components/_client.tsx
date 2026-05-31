@@ -22,6 +22,7 @@ import {
   Music,
 } from "lucide-react";
 import Navbar from "@/components/navbar";
+import { signOut } from "@/lib/auth-client";
 
 export default function LandingPage() {
   const fadeInUp = {
@@ -130,6 +131,7 @@ export default function LandingPage() {
               </Button>
             </motion.div>
           </Link>
+          <Button onClick={async () => await signOut()}>Sign Out</Button>
         </Navbar>
 
         {/* Hero Section */}
