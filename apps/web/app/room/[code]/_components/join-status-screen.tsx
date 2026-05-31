@@ -16,22 +16,26 @@ export default function JoinStatusScreen({
   joinState,
   joinError,
 }: JoinStatusScreenProps) {
-  const isWaitingForAdminApproval =
-    joinState === "blocked" || joinState === "joining";
+  const isWaitingForAdmin = joinState === "blocked";
+  const isWaitingForAdminApproval = joinState === "joining";
   const isRejected = joinState === "rejected";
 
   const joinStatusTitle = isRejected
     ? "Entry rejected by admin"
-    : isWaitingForAdminApproval
-      ? "Waiting for your entry approval by admin"
-      : "Joining room";
+    : isWaitingForAdmin
+      ? "Waiting for the room admin"
+      : isWaitingForAdminApproval
+        ? "Waiting for your entry approval"
+        : "Joining room";
 
   const joinStatusDescription = isRejected
     ? (joinError ??
       "Your entry request was rejected by the admin. Please go back and try again later.")
-    : isWaitingForAdminApproval
-      ? "Please wait while the admin approves your entry into the room."
-      : connectionState === "error"
+    : isWaitingForAdmin
+      ? "The admin has not joined this room yet. You will be notified once they arrive."
+      : isWaitingForAdminApproval
+        ? "The admin is online. Please wait while they approve your entry into the room."
+        : connectionState === "error"
         ? "There was a problem connecting to the room server."
         : connectionState === "disconnected"
           ? "Connecting you back to the room server."

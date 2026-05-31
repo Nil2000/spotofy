@@ -85,11 +85,13 @@ export function useWebSocket() {
 
         case ServerEvents.ADMIN_JOINED: {
           setIsAdminJoined(true);
+          setJoinState((prev) => (prev === "blocked" ? "joining" : prev));
           break;
         }
 
         case ServerEvents.ADMIN_LEFT: {
           setIsAdminJoined(false);
+          setJoinState((prev) => (prev === "joining" ? "blocked" : prev));
           break;
         }
 

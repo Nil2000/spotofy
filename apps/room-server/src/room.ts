@@ -90,6 +90,10 @@ export class Room {
     return this.usersRequested.get(userId);
   }
 
+  getPendingUserRequests(): UserPayloadWithWs[] {
+    return Array.from(this.usersRequested.values());
+  }
+
   clearUsersRequested(): void {
     this.usersRequested.clear();
   }
@@ -209,8 +213,14 @@ export class Room {
       //   clearTimeout(timeout);
       //   songRequestTimeouts.delete(songId);
       // }
+      // if no current song, play the new song
+      const currentSong = await this.playCurrentSong();
+      if (!currentSong) {
+        await this.playNextSong();
+      }
       return true;
-    } catch {
+    } catch (error) {
+      console.error("Error approving song:", error);
       return false;
     }
   }

@@ -1,8 +1,5 @@
 import type { WebSocket } from "ws";
-import {
-  ClientEvents,
-  ServerEvents,
-} from "./constants";
+import { ClientEvents, ServerEvents } from "./constants";
 import { Room } from "./room";
 import {
   IncomingMessageSchema,
@@ -16,6 +13,7 @@ import {
   type RejectSongMessage,
   type RequestSongMessage,
   type UpvoteSongMessage,
+  type UserPayload,
 } from "./types";
 
 const roomCache = new Map<string, Room>();
@@ -54,6 +52,83 @@ function sendToUser(userId: string, message: OutgoingMessage) {
   }
 }
 
+type UserPayloadWithWs = UserPayload & { ws: WebSocket };
+
+async function admitUserToRoom(
+  roomId: string,
+  room: Room,
+  user: UserPayloadWithWs,
+) {
+  connections.set(user.ws, {
+    ws: user.ws,
+    user: {
+      userId: user.userId,
+      username: user.username,
+      email: user.email,
+      isAdmin: user.isAdmin,
+    },
+    roomId,
+    status: "joined",
+  });
+  room.addUser({
+    userId: user.userId,
+    email: user.email,
+    username: user.username,
+    isAdmin: user.isAdmin,
+  });
+  room.removeUserRequest(user.userId);
+
+  const queue = await room.loadSongs();
+
+  send(user.ws, {
+    type: ServerEvents.ROOM_JOINED,
+    payload: {
+      roomId,
+      config: room.getConfig(),
+      queue,
+    },
+  });
+
+  broadcastToRoom(roomId, {
+    type: ServerEvents.MEMBERS_UPDATED,
+    payload: { users: room.getUsers() },
+  });
+
+  const currentSong = await room.playCurrentSong();
+  send(user.ws, {
+    type: ServerEvents.NOW_PLAYING_UPDATED,
+    payload: { song: currentSong ?? null },
+  });
+
+  send(user.ws, {
+    type: ServerEvents.QUEUE_UPDATED,
+    payload: { queue },
+  });
+
+  send(user.ws, {
+    type: ServerEvents.USER_APPROVED,
+    payload: {
+      userId: user.userId,
+      username: user.username,
+    },
+  });
+}
+
+async function notifyPendingUsersOnAdminJoin(roomId: string, room: Room) {
+  const pendingUsers = room.getPendingUserRequests();
+
+  for (const pendingUser of pendingUsers) {
+    if (room.isAutoApproveUsers()) {
+      await admitUserToRoom(roomId, room, pendingUser);
+    } else {
+      send(pendingUser.ws, {
+        type: ServerEvents.ADMIN_JOINED,
+        payload: {},
+      });
+    }
+  }
+}
+
 async function sendQueueUpdate(roomId: string, room: Room) {
   const queue = await room.loadSongs();
   broadcastToRoom(roomId, {
@@ -83,6 +158,8 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
       type: ServerEvents.ADMIN_JOINED,
       payload: {},
     });
+
+    await notifyPendingUsersOnAdminJoin(roomId, room);
 
     // send list of users requested to join
     const userRequests = room.getUsersRequestedList();
@@ -231,67 +308,7 @@ async function handleApproveUser(ws: WebSocket, msg: ApproveUserMessage) {
     });
   }
 
-  // add to connection and user list
-  connections.set(user.ws, {
-    ws: user.ws,
-    user: {
-      userId: user.userId,
-      username: user.username,
-      email: user.email,
-      isAdmin: user.isAdmin,
-    },
-    roomId: conn.roomId,
-    status: "joined",
-  });
-  room.addUser({
-    userId: user.userId,
-    email: user.email,
-    username: user.username,
-    isAdmin: user.isAdmin,
-  });
-
-  // remove the user from requested list
-  room.removeUserRequest(msg.payload.userId);
-
-  const queue = await room.loadSongs();
-
-  // send joined message to user
-  sendToUser(msg.payload.userId, {
-    type: ServerEvents.ROOM_JOINED,
-    payload: {
-      roomId: conn.roomId,
-      config: room.getConfig(),
-      queue,
-    },
-  });
-
-  // send list users message to all users in room
-  broadcastToRoom(conn.roomId, {
-    type: ServerEvents.MEMBERS_UPDATED,
-    payload: { users: room.getUsers() },
-  });
-
-  // send current song to this user
-  const currentSong = await room.playCurrentSong();
-  sendToUser(msg.payload.userId, {
-    type: ServerEvents.NOW_PLAYING_UPDATED,
-    payload: { song: currentSong ?? null },
-  });
-
-  // send queue update to this user
-  sendToUser(msg.payload.userId, {
-    type: ServerEvents.QUEUE_UPDATED,
-    payload: { queue },
-  });
-
-  // send to user that request is approved
-  sendToUser(msg.payload.userId, {
-    type: ServerEvents.USER_APPROVED,
-    payload: {
-      userId: msg.payload.userId,
-      username: msg.payload.username,
-    },
-  });
+  await admitUserToRoom(conn.roomId, room, user);
 }
 
 async function handleRequestSong(ws: WebSocket, msg: RequestSongMessage) {
@@ -392,18 +409,28 @@ async function handleApproveSong(ws: WebSocket, msg: ApproveSongMessage) {
   }
 
   const success = await room.approveSong(msg.payload.songId);
-  if (success) {
-    broadcastToRoom(conn.roomId, {
-      type: ServerEvents.SONG_APPROVED,
-      payload: { songId: msg.payload.songId },
-    });
-    await sendQueueUpdate(conn.roomId, room);
-  } else {
+  if (!success) {
     send(ws, {
       type: ServerEvents.ERROR,
       payload: { message: "Song not found in requests" },
     });
+    return;
   }
+
+  broadcastToRoom(conn.roomId, {
+    type: ServerEvents.SONG_APPROVED,
+    payload: { songId: msg.payload.songId },
+  });
+
+  // if there is no current song, play the next song
+  const currentSong = await room.playCurrentSong();
+
+  broadcastToRoom(conn.roomId, {
+    type: ServerEvents.NOW_PLAYING_UPDATED,
+    payload: { song: currentSong ?? null },
+  });
+
+  await sendQueueUpdate(conn.roomId, room);
 }
 
 async function handleRejectSong(ws: WebSocket, msg: RejectSongMessage) {
