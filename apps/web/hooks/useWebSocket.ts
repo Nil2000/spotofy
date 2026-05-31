@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
-  CLIENT_TO_SERVER_MESSAGE_TYPES,
-  SERVER_TO_CLIENT_MESSAGE_TYPES,
+  ClientEvents,
+  ServerEvents,
 } from "@/lib/constants";
 import type {
   UserPayload,
@@ -45,12 +45,12 @@ export function useWebSocket() {
   const handleServerMessage = useCallback(
     (message: ServerMessage) => {
       switch (message.type) {
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.LIST_USERS: {
+        case ServerEvents.MEMBERS_UPDATED: {
           setUsers(message.payload.users);
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.JOINED_ROOM: {
+        case ServerEvents.ROOM_JOINED: {
           setJoinState("joined");
           setJoinError(null);
           setRoomConfig(message.payload.config);
@@ -58,7 +58,7 @@ export function useWebSocket() {
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_NOT_JOINED: {
+        case ServerEvents.WAITING_FOR_ADMIN: {
           setJoinState("blocked");
           setJoinError(null);
           setRoomConfig(null);
@@ -70,7 +70,7 @@ export function useWebSocket() {
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.USER_REJECTED: {
+        case ServerEvents.USER_REJECTED: {
           setJoinState("rejected");
           setJoinError("Your entry request was rejected by the admin.");
           setRoomConfig(null);
@@ -83,46 +83,46 @@ export function useWebSocket() {
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_JOINED: {
+        case ServerEvents.ADMIN_JOINED: {
           setIsAdminJoined(true);
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_LEFT: {
+        case ServerEvents.ADMIN_LEFT: {
           setIsAdminJoined(false);
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.QUEUE_UPDATE: {
+        case ServerEvents.QUEUE_UPDATED: {
           setQueue(message.payload.queue);
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.SONG_REQUESTED: {
+        case ServerEvents.SONG_REQUESTED: {
           setPendingRequests((prev) => [...prev, message.payload.song]);
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.SONG_APPROVED: {
+        case ServerEvents.SONG_APPROVED: {
           setPendingRequests((prev) =>
             prev.filter((song) => song.id !== message.payload.songId),
           );
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.SONG_REJECTED: {
+        case ServerEvents.SONG_REJECTED: {
           setPendingRequests((prev) =>
             prev.filter((song) => song.id !== message.payload.songId),
           );
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.USERS_REQUESTED_LIST: {
+        case ServerEvents.PENDING_JOIN_REQUESTS: {
           setPendingUsers(message.payload.users);
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.JOIN_REQUESTED: {
+        case ServerEvents.USER_JOIN_REQUESTED: {
           setPendingUsers((prev) => {
             if (prev.some((u) => u.userId === message.payload.userId)) {
               return prev;
@@ -132,12 +132,12 @@ export function useWebSocket() {
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.NOW_PLAYING_UPDATE: {
+        case ServerEvents.NOW_PLAYING_UPDATED: {
           setNowPlaying(message.payload.song);
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR: {
+        case ServerEvents.ERROR: {
           reportError(
             message.payload.message,
             undefined,
@@ -257,7 +257,7 @@ export function useWebSocket() {
       setJoinState("joining");
       setJoinError(null);
       sendMessage({
-        type: CLIENT_TO_SERVER_MESSAGE_TYPES.JOIN_ROOM,
+        type: ClientEvents.JOIN_ROOM,
         payload: { roomId, user },
       });
     },
@@ -267,7 +267,7 @@ export function useWebSocket() {
   const requestSong = useCallback(
     (song: SongPayload) => {
       sendMessage({
-        type: CLIENT_TO_SERVER_MESSAGE_TYPES.REQUEST_SONG,
+        type: ClientEvents.REQUEST_SONG,
         payload: { song },
       });
     },
@@ -277,7 +277,7 @@ export function useWebSocket() {
   const upvoteSong = useCallback(
     (songId: string, userId: string) => {
       sendMessage({
-        type: CLIENT_TO_SERVER_MESSAGE_TYPES.UPVOTE_SONG,
+        type: ClientEvents.UPVOTE_SONG,
         payload: { songId, userId },
       });
     },
@@ -287,7 +287,7 @@ export function useWebSocket() {
   const approveSong = useCallback(
     (songId: string) => {
       sendMessage({
-        type: CLIENT_TO_SERVER_MESSAGE_TYPES.APPROVE_SONG,
+        type: ClientEvents.APPROVE_SONG,
         payload: { songId },
       });
     },
@@ -297,7 +297,7 @@ export function useWebSocket() {
   const rejectSong = useCallback(
     (songId: string) => {
       sendMessage({
-        type: CLIENT_TO_SERVER_MESSAGE_TYPES.REJECT_SONG,
+        type: ClientEvents.REJECT_SONG,
         payload: { songId },
       });
     },
@@ -308,7 +308,7 @@ export function useWebSocket() {
     (userId: string, username: string) => {
       setPendingUsers((prev) => prev.filter((u) => u.userId !== userId));
       sendMessage({
-        type: CLIENT_TO_SERVER_MESSAGE_TYPES.APPROVE_USER,
+        type: ClientEvents.APPROVE_USER,
         payload: { userId, username },
       });
     },
@@ -319,7 +319,7 @@ export function useWebSocket() {
     (userId: string, username: string) => {
       setPendingUsers((prev) => prev.filter((u) => u.userId !== userId));
       sendMessage({
-        type: CLIENT_TO_SERVER_MESSAGE_TYPES.REJECT_USER,
+        type: ClientEvents.REJECT_USER,
         payload: { userId, username },
       });
     },
@@ -327,11 +327,11 @@ export function useWebSocket() {
   );
 
   const broadcastNowPlaying = useCallback(() => {
-    sendMessage({ type: CLIENT_TO_SERVER_MESSAGE_TYPES.BROADCAST_NOW_PLAYING });
+    sendMessage({ type: ClientEvents.SYNC_NOW_PLAYING });
   }, [sendMessage]);
 
   const requestNextSong = useCallback(() => {
-    sendMessage({ type: CLIENT_TO_SERVER_MESSAGE_TYPES.NEXT_SONG });
+    sendMessage({ type: ClientEvents.SKIP_TO_NEXT });
   }, [sendMessage]);
 
   useEffect(() => {

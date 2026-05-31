@@ -1,7 +1,7 @@
 import type { WebSocket } from "ws";
 import {
-  CLIENT_TO_SERVER_MESSAGE_TYPES,
-  SERVER_TO_CLIENT_MESSAGE_TYPES,
+  ClientEvents,
+  ServerEvents,
 } from "./constants";
 import { Room } from "./room";
 import {
@@ -57,7 +57,7 @@ function sendToUser(userId: string, message: OutgoingMessage) {
 async function sendQueueUpdate(roomId: string, room: Room) {
   const queue = await room.loadSongs();
   broadcastToRoom(roomId, {
-    type: SERVER_TO_CLIENT_MESSAGE_TYPES.QUEUE_UPDATE,
+    type: ServerEvents.QUEUE_UPDATED,
     payload: { queue },
   });
 }
@@ -80,7 +80,7 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
   if (user.userId === room.getAdminId()) {
     room.setAdminStatus(true);
     broadcastToRoom(roomId, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_JOINED,
+      type: ServerEvents.ADMIN_JOINED,
       payload: {},
     });
 
@@ -88,7 +88,7 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
     const userRequests = room.getUsersRequestedList();
     if (userRequests.length > 0) {
       send(ws, {
-        type: SERVER_TO_CLIENT_MESSAGE_TYPES.USERS_REQUESTED_LIST,
+        type: ServerEvents.PENDING_JOIN_REQUESTS,
         payload: { users: userRequests },
       });
     }
@@ -96,7 +96,7 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
     if (!room.isAdminJoined()) {
       // send message to user that admin has not joined yet
       send(ws, {
-        type: SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_NOT_JOINED,
+        type: ServerEvents.WAITING_FOR_ADMIN,
         payload: {},
       });
 
@@ -107,7 +107,7 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
       if (room.checkUserRequestedAlready(user.userId)) {
         // send message to user that request is already sent
         send(ws, {
-          type: SERVER_TO_CLIENT_MESSAGE_TYPES.REQUEST_ALREADY_SENT,
+          type: ServerEvents.JOIN_ALREADY_PENDING,
           payload: {},
         });
         return;
@@ -117,7 +117,7 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
 
       // send to admin for approval
       sendToAdmin(roomId, room, {
-        type: SERVER_TO_CLIENT_MESSAGE_TYPES.JOIN_REQUESTED,
+        type: ServerEvents.USER_JOIN_REQUESTED,
         payload: {
           userId: user.userId,
           username: user.username,
@@ -134,7 +134,7 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
 
   // send joined room message to self
   send(ws, {
-    type: SERVER_TO_CLIENT_MESSAGE_TYPES.JOINED_ROOM,
+    type: ServerEvents.ROOM_JOINED,
     payload: {
       roomId,
       config: room.getConfig(),
@@ -144,20 +144,20 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
 
   // send list users message to all users in room
   broadcastToRoom(roomId, {
-    type: SERVER_TO_CLIENT_MESSAGE_TYPES.LIST_USERS,
+    type: ServerEvents.MEMBERS_UPDATED,
     payload: { users: room.getUsers() },
   });
 
   // send current song to this user
   const currentSong = await room.playCurrentSong();
   send(ws, {
-    type: SERVER_TO_CLIENT_MESSAGE_TYPES.NOW_PLAYING_UPDATE,
+    type: ServerEvents.NOW_PLAYING_UPDATED,
     payload: { song: currentSong ?? null },
   });
 
   // send queue update to this user
   send(ws, {
-    type: SERVER_TO_CLIENT_MESSAGE_TYPES.QUEUE_UPDATE,
+    type: ServerEvents.QUEUE_UPDATED,
     payload: { queue },
   });
 }
@@ -166,7 +166,7 @@ async function handleRejectUser(ws: WebSocket, msg: RejectUserMessage) {
   const conn = connections.get(ws);
   if (!conn || !conn.user) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Not in a room" },
     });
   }
@@ -174,7 +174,7 @@ async function handleRejectUser(ws: WebSocket, msg: RejectUserMessage) {
   // check if user is admin
   if (!conn.user.isAdmin) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "User is not admin" },
     });
   }
@@ -183,7 +183,7 @@ async function handleRejectUser(ws: WebSocket, msg: RejectUserMessage) {
   const room = await getRoom(conn.roomId);
   if (!room) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Room not found" },
     });
   }
@@ -193,7 +193,7 @@ async function handleRejectUser(ws: WebSocket, msg: RejectUserMessage) {
 
   // send to user that request is rejected
   sendToUser(msg.payload.userId, {
-    type: SERVER_TO_CLIENT_MESSAGE_TYPES.USER_REJECTED,
+    type: ServerEvents.USER_REJECTED,
   });
 }
 
@@ -201,7 +201,7 @@ async function handleApproveUser(ws: WebSocket, msg: ApproveUserMessage) {
   const conn = connections.get(ws);
   if (!conn || !conn.user) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Not in a room" },
     });
   }
@@ -209,7 +209,7 @@ async function handleApproveUser(ws: WebSocket, msg: ApproveUserMessage) {
   const room = await getRoom(conn.roomId);
   if (!room) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Room not found" },
     });
   }
@@ -217,7 +217,7 @@ async function handleApproveUser(ws: WebSocket, msg: ApproveUserMessage) {
   // check if user is admin
   if (!conn.user.isAdmin) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "User is not admin" },
     });
   }
@@ -226,7 +226,7 @@ async function handleApproveUser(ws: WebSocket, msg: ApproveUserMessage) {
   const user = room.getUserRequested(msg.payload.userId);
   if (!user) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "User not found in requested list" },
     });
   }
@@ -257,7 +257,7 @@ async function handleApproveUser(ws: WebSocket, msg: ApproveUserMessage) {
 
   // send joined message to user
   sendToUser(msg.payload.userId, {
-    type: SERVER_TO_CLIENT_MESSAGE_TYPES.JOINED_ROOM,
+    type: ServerEvents.ROOM_JOINED,
     payload: {
       roomId: conn.roomId,
       config: room.getConfig(),
@@ -267,26 +267,26 @@ async function handleApproveUser(ws: WebSocket, msg: ApproveUserMessage) {
 
   // send list users message to all users in room
   broadcastToRoom(conn.roomId, {
-    type: SERVER_TO_CLIENT_MESSAGE_TYPES.LIST_USERS,
+    type: ServerEvents.MEMBERS_UPDATED,
     payload: { users: room.getUsers() },
   });
 
   // send current song to this user
   const currentSong = await room.playCurrentSong();
   sendToUser(msg.payload.userId, {
-    type: SERVER_TO_CLIENT_MESSAGE_TYPES.NOW_PLAYING_UPDATE,
+    type: ServerEvents.NOW_PLAYING_UPDATED,
     payload: { song: currentSong ?? null },
   });
 
   // send queue update to this user
   sendToUser(msg.payload.userId, {
-    type: SERVER_TO_CLIENT_MESSAGE_TYPES.QUEUE_UPDATE,
+    type: ServerEvents.QUEUE_UPDATED,
     payload: { queue },
   });
 
   // send to user that request is approved
   sendToUser(msg.payload.userId, {
-    type: SERVER_TO_CLIENT_MESSAGE_TYPES.USER_APPROVED,
+    type: ServerEvents.USER_APPROVED,
     payload: {
       userId: msg.payload.userId,
       username: msg.payload.username,
@@ -298,7 +298,7 @@ async function handleRequestSong(ws: WebSocket, msg: RequestSongMessage) {
   const conn = connections.get(ws);
   if (!conn || !conn.user) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Not in a room" },
     });
   }
@@ -306,7 +306,7 @@ async function handleRequestSong(ws: WebSocket, msg: RequestSongMessage) {
   const room = await getRoom(conn.roomId);
   if (!room) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Room not found" },
     });
   }
@@ -319,7 +319,7 @@ async function handleRequestSong(ws: WebSocket, msg: RequestSongMessage) {
     await sendQueueUpdate(conn.roomId, room);
   } else {
     sendToAdmin(conn.roomId, room, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.SONG_REQUESTED,
+      type: ServerEvents.SONG_REQUESTED,
       payload: { song: songData },
     });
   }
@@ -329,7 +329,7 @@ async function handleUpvote(ws: WebSocket, msg: UpvoteSongMessage) {
   const conn = connections.get(ws);
   if (!conn || !conn.user) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Not in a room" },
     });
   }
@@ -337,14 +337,14 @@ async function handleUpvote(ws: WebSocket, msg: UpvoteSongMessage) {
   const room = await getRoom(conn.roomId);
   if (!room) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Room not found" },
     });
   }
 
   if (msg.payload.userId !== conn.user.userId) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Invalid upvote user" },
     });
   }
@@ -356,13 +356,13 @@ async function handleUpvote(ws: WebSocket, msg: UpvoteSongMessage) {
 
   if (result === "already_upvoted") {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "You have already upvoted this song in this room" },
     });
   }
 
   return send(ws, {
-    type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+    type: ServerEvents.ERROR,
     payload: { message: "Song not found in queue" },
   });
 }
@@ -371,7 +371,7 @@ async function handleApproveSong(ws: WebSocket, msg: ApproveSongMessage) {
   const conn = connections.get(ws);
   if (!conn || !conn.user) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Not in a room" },
     });
   }
@@ -379,14 +379,14 @@ async function handleApproveSong(ws: WebSocket, msg: ApproveSongMessage) {
   const room = await getRoom(conn.roomId);
   if (!room) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Room not found" },
     });
   }
 
   if (conn.user.userId !== room.getAdminId()) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Only admin can approve songs" },
     });
   }
@@ -394,13 +394,13 @@ async function handleApproveSong(ws: WebSocket, msg: ApproveSongMessage) {
   const success = await room.approveSong(msg.payload.songId);
   if (success) {
     broadcastToRoom(conn.roomId, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.SONG_APPROVED,
+      type: ServerEvents.SONG_APPROVED,
       payload: { songId: msg.payload.songId },
     });
     await sendQueueUpdate(conn.roomId, room);
   } else {
     send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Song not found in requests" },
     });
   }
@@ -410,7 +410,7 @@ async function handleRejectSong(ws: WebSocket, msg: RejectSongMessage) {
   const conn = connections.get(ws);
   if (!conn || !conn.user) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Not in a room" },
     });
   }
@@ -418,14 +418,14 @@ async function handleRejectSong(ws: WebSocket, msg: RejectSongMessage) {
   const room = await getRoom(conn.roomId);
   if (!room) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Room not found" },
     });
   }
 
   if (conn.user.userId !== room.getAdminId()) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Only admin can reject songs" },
     });
   }
@@ -433,12 +433,12 @@ async function handleRejectSong(ws: WebSocket, msg: RejectSongMessage) {
   const success = await room.rejectSong(msg.payload.songId);
   if (success) {
     broadcastToRoom(conn.roomId, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.SONG_REJECTED,
+      type: ServerEvents.SONG_REJECTED,
       payload: { songId: msg.payload.songId },
     });
   } else {
     send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Song not found in requests" },
     });
   }
@@ -448,7 +448,7 @@ async function handleNextSong(ws: WebSocket) {
   const conn = connections.get(ws);
   if (!conn || !conn.user) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Not in a room" },
     });
   }
@@ -456,14 +456,14 @@ async function handleNextSong(ws: WebSocket) {
   const room = await getRoom(conn.roomId);
   if (!room) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Room not found" },
     });
   }
 
   if (conn.user.userId !== room.getAdminId()) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Only admin can skip to next song" },
     });
   }
@@ -471,7 +471,7 @@ async function handleNextSong(ws: WebSocket) {
   const song = await room.playNextSong();
 
   broadcastToRoom(conn.roomId, {
-    type: SERVER_TO_CLIENT_MESSAGE_TYPES.NOW_PLAYING_UPDATE,
+    type: ServerEvents.NOW_PLAYING_UPDATED,
     payload: { song: song ?? null },
   });
 
@@ -482,7 +482,7 @@ async function handlePlayCurrentSong(ws: WebSocket) {
   const conn = connections.get(ws);
   if (!conn || !conn.user) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Not in a room" },
     });
   }
@@ -490,7 +490,7 @@ async function handlePlayCurrentSong(ws: WebSocket) {
   const room = await getRoom(conn.roomId);
   if (!room) {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Room not found" },
     });
   }
@@ -498,7 +498,7 @@ async function handlePlayCurrentSong(ws: WebSocket) {
   const song = await room.playCurrentSong();
 
   broadcastToRoom(conn.roomId, {
-    type: SERVER_TO_CLIENT_MESSAGE_TYPES.NOW_PLAYING_UPDATE,
+    type: ServerEvents.NOW_PLAYING_UPDATED,
     payload: { song: song ?? null },
   });
 
@@ -512,7 +512,7 @@ export async function handleMessage(ws: WebSocket, raw: string) {
 
     if (!parsedMessage.success) {
       return send(ws, {
-        type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+        type: ServerEvents.ERROR,
         payload: { message: "Invalid message payload" },
       });
     }
@@ -520,34 +520,34 @@ export async function handleMessage(ws: WebSocket, raw: string) {
     msg = parsedMessage.data;
   } catch {
     return send(ws, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+      type: ServerEvents.ERROR,
       payload: { message: "Invalid JSON" },
     });
   }
 
   switch (msg.type) {
-    case CLIENT_TO_SERVER_MESSAGE_TYPES.JOIN_ROOM:
+    case ClientEvents.JOIN_ROOM:
       return handleJoinRoom(ws, msg);
-    case CLIENT_TO_SERVER_MESSAGE_TYPES.REQUEST_SONG:
+    case ClientEvents.REQUEST_SONG:
       return handleRequestSong(ws, msg);
-    case CLIENT_TO_SERVER_MESSAGE_TYPES.UPVOTE_SONG:
+    case ClientEvents.UPVOTE_SONG:
       return handleUpvote(ws, msg);
-    case CLIENT_TO_SERVER_MESSAGE_TYPES.APPROVE_SONG:
+    case ClientEvents.APPROVE_SONG:
       return handleApproveSong(ws, msg);
-    case CLIENT_TO_SERVER_MESSAGE_TYPES.REJECT_SONG:
+    case ClientEvents.REJECT_SONG:
       return handleRejectSong(ws, msg);
-    case CLIENT_TO_SERVER_MESSAGE_TYPES.APPROVE_USER:
+    case ClientEvents.APPROVE_USER:
       return handleApproveUser(ws, msg);
-    case CLIENT_TO_SERVER_MESSAGE_TYPES.REJECT_USER:
+    case ClientEvents.REJECT_USER:
       return handleRejectUser(ws, msg);
-    case CLIENT_TO_SERVER_MESSAGE_TYPES.BROADCAST_NOW_PLAYING:
+    case ClientEvents.SYNC_NOW_PLAYING:
       return handlePlayCurrentSong(ws);
-    case CLIENT_TO_SERVER_MESSAGE_TYPES.NEXT_SONG:
+    case ClientEvents.SKIP_TO_NEXT:
       return handleNextSong(ws);
     default:
       console.log("MESSAGE_TYPE: ", msg);
       return send(ws, {
-        type: SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR,
+        type: ServerEvents.ERROR,
         payload: { message: "Unknown message type" },
       });
   }
@@ -568,7 +568,7 @@ export function handleDisconnect(ws: WebSocket) {
 
     // TODO: notify other users that admin left
     broadcastToRoom(conn.roomId, {
-      type: SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_LEFT,
+      type: ServerEvents.ADMIN_LEFT,
       payload: {},
     });
   }
@@ -580,7 +580,7 @@ export function handleDisconnect(ws: WebSocket) {
   }
 
   broadcastToRoom(conn.roomId, {
-    type: SERVER_TO_CLIENT_MESSAGE_TYPES.LIST_USERS,
+    type: ServerEvents.MEMBERS_UPDATED,
     payload: { users: room.getUsers() },
   });
 }
