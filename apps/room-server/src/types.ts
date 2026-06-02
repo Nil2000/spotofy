@@ -234,8 +234,43 @@ export const JoinedRoomMessageSchema = z.object({
     roomId: z.string().min(1),
     config: RoomConfigSchema,
     queue: z.array(SongDataSchema),
+    upvotesUsed: z.number().int().nonnegative(),
   }),
 });
+
+export const RoomUserLimitReachedMessageSchema = z.object({
+  type: z.literal(ServerEvents.ROOM_USER_LIMIT_REACHED),
+  payload: z.object({
+    maxUsers: z.number().int().nonnegative(),
+  }),
+});
+
+export type RoomUserLimitReachedMessage = z.infer<
+  typeof RoomUserLimitReachedMessageSchema
+>;
+
+export const RoomUpvoteLimitReachedMessageSchema = z.object({
+  type: z.literal(ServerEvents.ROOM_UPVOTE_LIMIT_REACHED),
+  payload: z.object({
+    maxUpvotes: z.number().int().nonnegative(),
+  }),
+});
+
+export type RoomUpvoteLimitReachedMessage = z.infer<
+  typeof RoomUpvoteLimitReachedMessageSchema
+>;
+
+export const UserUpvotesUsageMessageSchema = z.object({
+  type: z.literal(ServerEvents.USER_UPVOTES_USAGE),
+  payload: z.object({
+    used: z.number().int().nonnegative(),
+    maxUpvotes: z.number().int().nonnegative(),
+  }),
+});
+
+export type UserUpvotesUsageMessage = z.infer<
+  typeof UserUpvotesUsageMessageSchema
+>;
 
 export type JoinedRoomMessage = z.infer<typeof JoinedRoomMessageSchema>;
 
@@ -316,6 +351,9 @@ export const OutgoingMessageSchema = z.discriminatedUnion("type", [
   AdminJoinedMessageSchema,
   AdminLeftMessageSchema,
   JoinedRoomMessageSchema,
+  RoomUserLimitReachedMessageSchema,
+  RoomUpvoteLimitReachedMessageSchema,
+  UserUpvotesUsageMessageSchema,
   ListUsersMessageSchema,
   JoinRequestedMessageSchema,
   RequestAlreadySentMessageSchema,

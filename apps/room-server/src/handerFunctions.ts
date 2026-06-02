@@ -52,6 +52,21 @@ function sendToUser(userId: string, message: OutgoingMessage) {
   }
 }
 
+function sendUserLimitReached(ws: WebSocket, maxUsers: number) {
+  send(ws, {
+    type: ServerEvents.ROOM_USER_LIMIT_REACHED,
+    payload: { maxUsers },
+  });
+}
+
+async function sendUserUpvotesUsage(ws: WebSocket, room: Room, userId: string) {
+  const used = await room.getUserUpvoteCount(userId);
+  send(ws, {
+    type: ServerEvents.USER_UPVOTES_USAGE,
+    payload: { used, maxUpvotes: room.getConfig().maxUpvotes },
+  });
+}
+
 type UserPayloadWithWs = UserPayload & { ws: WebSocket };
 
 async function admitUserToRoom(
@@ -59,6 +74,11 @@ async function admitUserToRoom(
   room: Room,
   user: UserPayloadWithWs,
 ) {
+  if (room.isAtUserCapacity(user.userId)) {
+    sendUserLimitReached(user.ws, room.getConfig().maxUsers);
+    return false;
+  }
+
   connections.set(user.ws, {
     ws: user.ws,
     user: {
@@ -79,6 +99,7 @@ async function admitUserToRoom(
   room.removeUserRequest(user.userId);
 
   const queue = await room.loadSongs();
+  const upvotesUsed = await room.getUserUpvoteCount(user.userId);
 
   send(user.ws, {
     type: ServerEvents.ROOM_JOINED,
@@ -86,6 +107,7 @@ async function admitUserToRoom(
       roomId,
       config: room.getConfig(),
       queue,
+      upvotesUsed,
     },
   });
 
@@ -112,6 +134,8 @@ async function admitUserToRoom(
       username: user.username,
     },
   });
+
+  return true;
 }
 
 async function notifyPendingUsersOnAdminJoin(roomId: string, room: Room) {
@@ -119,8 +143,11 @@ async function notifyPendingUsersOnAdminJoin(roomId: string, room: Room) {
 
   for (const pendingUser of pendingUsers) {
     if (room.isAutoApproveUsers()) {
-      await admitUserToRoom(roomId, room, pendingUser);
-    } else {
+      const admitted = await admitUserToRoom(roomId, room, pendingUser);
+      if (!admitted) {
+        room.removeUserRequest(pendingUser.userId);
+      }
+    } else if (!room.isAtUserCapacity(pendingUser.userId)) {
       send(pendingUser.ws, {
         type: ServerEvents.ADMIN_JOINED,
         payload: {},
@@ -170,6 +197,11 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
       });
     }
   } else {
+    if (room.isAtUserCapacity(user.userId)) {
+      sendUserLimitReached(ws, room.getConfig().maxUsers);
+      return;
+    }
+
     if (!room.isAdminJoined()) {
       // send message to user that admin has not joined yet
       send(ws, {
@@ -208,6 +240,7 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
   room.addUser(user);
 
   const queue = await room.loadSongs();
+  const upvotesUsed = await room.getUserUpvoteCount(user.userId);
 
   // send joined room message to self
   send(ws, {
@@ -216,6 +249,7 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
       roomId,
       config: room.getConfig(),
       queue,
+      upvotesUsed,
     },
   });
 
@@ -308,7 +342,24 @@ async function handleApproveUser(ws: WebSocket, msg: ApproveUserMessage) {
     });
   }
 
-  await admitUserToRoom(conn.roomId, room, user);
+  if (room.isAtUserCapacity(user.userId)) {
+    return send(ws, {
+      type: ServerEvents.ERROR,
+      payload: {
+        message: `Room is full (${room.getConfig().maxUsers} users max)`,
+      },
+    });
+  }
+
+  const admitted = await admitUserToRoom(conn.roomId, room, user);
+  if (!admitted) {
+    send(ws, {
+      type: ServerEvents.ERROR,
+      payload: {
+        message: `Room is full (${room.getConfig().maxUsers} users max)`,
+      },
+    });
+  }
 }
 
 async function handleRequestSong(ws: WebSocket, msg: RequestSongMessage) {
@@ -377,7 +428,15 @@ async function handleUpvote(ws: WebSocket, msg: UpvoteSongMessage) {
 
   const result = await room.upvote(msg.payload.songId, conn.user.userId);
   if (result === "success") {
+    await sendUserUpvotesUsage(ws, room, conn.user.userId);
     return await sendQueueUpdate(conn.roomId, room);
+  }
+
+  if (result === "upvote_limit_reached") {
+    return send(ws, {
+      type: ServerEvents.ROOM_UPVOTE_LIMIT_REACHED,
+      payload: { maxUpvotes: room.getConfig().maxUpvotes },
+    });
   }
 
   if (result === "already_upvoted") {

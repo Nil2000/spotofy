@@ -30,6 +30,7 @@ export function useWebSocket() {
   const [users, setUsers] = useState<UserPayload[]>([]);
   const [nowPlaying, setNowPlaying] = useState<SongData | null>(null);
   const [isAdminJoined, setIsAdminJoined] = useState(false);
+  const [upvotesUsed, setUpvotesUsed] = useState(0);
 
   const reportError = useCallback(
     (message: string, details?: unknown, toastId?: string) => {
@@ -55,6 +56,36 @@ export function useWebSocket() {
           setJoinError(null);
           setRoomConfig(message.payload.config);
           setQueue(message.payload.queue);
+          setUpvotesUsed(message.payload.upvotesUsed);
+          break;
+        }
+
+        case ServerEvents.ROOM_USER_LIMIT_REACHED: {
+          setJoinState("full");
+          setJoinError(
+            `This room is full (${message.payload.maxUsers} users max). Try again later.`,
+          );
+          setRoomConfig(null);
+          setQueue([]);
+          setPendingRequests([]);
+          setPendingUsers([]);
+          setUsers([]);
+          setNowPlaying(null);
+          setUpvotesUsed(0);
+          break;
+        }
+
+        case ServerEvents.ROOM_UPVOTE_LIMIT_REACHED: {
+          reportError(
+            `You've used all ${message.payload.maxUpvotes} upvotes for this room`,
+            undefined,
+            "websocket-upvote-limit",
+          );
+          break;
+        }
+
+        case ServerEvents.USER_UPVOTES_USAGE: {
+          setUpvotesUsed(message.payload.used);
           break;
         }
 
@@ -345,6 +376,9 @@ export function useWebSocket() {
     };
   }, [connect]);
 
+  const maxUpvotes = roomConfig?.maxUpvotes ?? 0;
+  const canUpvote = joinState === "joined" && upvotesUsed < maxUpvotes;
+
   return {
     connectionState,
     joinState,
@@ -355,6 +389,8 @@ export function useWebSocket() {
     queue,
     pendingRequests,
     pendingUsers,
+    upvotesUsed,
+    canUpvote,
     joinRoom,
     requestSong,
     upvoteSong,

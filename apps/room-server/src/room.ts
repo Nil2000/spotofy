@@ -9,7 +9,11 @@ import type {
 import { createId } from "@paralleldrive/cuid2";
 import type { WebSocket } from "ws";
 
-type UpvoteResult = "success" | "already_upvoted" | "song_not_found";
+type UpvoteResult =
+  | "success"
+  | "already_upvoted"
+  | "song_not_found"
+  | "upvote_limit_reached";
 
 export type RequestSongResult = SongData | "duplicate";
 
@@ -37,6 +41,27 @@ export class Room {
 
   getUsers(): UserPayload[] {
     return Array.from(this.users.values());
+  }
+
+  getMemberCount(): number {
+    return this.users.size;
+  }
+
+  hasUser(userId: string): boolean {
+    return this.users.has(userId);
+  }
+
+  isAtUserCapacity(userId: string): boolean {
+    if (this.hasUser(userId) || userId === this.config.admin) {
+      return false;
+    }
+    return this.getMemberCount() >= this.config.maxUsers;
+  }
+
+  async getUserUpvoteCount(userId: string): Promise<number> {
+    return prisma.songUpvoteHistory.count({
+      where: { roomId: this.config.id, userId },
+    });
   }
 
   getConfig(): RoomConfig {
@@ -187,6 +212,11 @@ export class Room {
   }
 
   async upvote(songId: string, userId: string): Promise<UpvoteResult> {
+    const upvotesUsed = await this.getUserUpvoteCount(userId);
+    if (upvotesUsed >= this.config.maxUpvotes) {
+      return "upvote_limit_reached";
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const song = await tx.song.findFirst({
         where: { id: songId, roomId: this.config.id, status: "QUEUED" },
@@ -195,6 +225,13 @@ export class Room {
 
       if (!song) {
         return "song_not_found" satisfies UpvoteResult;
+      }
+
+      const upvotesInRoom = await tx.songUpvoteHistory.count({
+        where: { roomId: this.config.id, userId },
+      });
+      if (upvotesInRoom >= this.config.maxUpvotes) {
+        return "upvote_limit_reached" satisfies UpvoteResult;
       }
 
       const insertedRows = await tx.$executeRaw`

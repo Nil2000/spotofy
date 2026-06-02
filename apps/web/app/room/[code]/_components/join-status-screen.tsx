@@ -19,27 +19,33 @@ export default function JoinStatusScreen({
   const isWaitingForAdmin = joinState === "blocked";
   const isWaitingForAdminApproval = joinState === "joining";
   const isRejected = joinState === "rejected";
+  const isRoomFull = joinState === "full";
 
   const joinStatusTitle = isRejected
     ? "Entry rejected by admin"
-    : isWaitingForAdmin
-      ? "Waiting for the room admin"
-      : isWaitingForAdminApproval
-        ? "Waiting for your entry approval"
-        : "Joining room";
+    : isRoomFull
+      ? "Room is full"
+      : isWaitingForAdmin
+        ? "Waiting for the room admin"
+        : isWaitingForAdminApproval
+          ? "Waiting for your entry approval"
+          : "Joining room";
 
   const joinStatusDescription = isRejected
     ? (joinError ??
       "Your entry request was rejected by the admin. Please go back and try again later.")
-    : isWaitingForAdmin
-      ? "The admin has not joined this room yet. You will be notified once they arrive."
-      : isWaitingForAdminApproval
-        ? "The admin is online. Please wait while they approve your entry into the room."
-        : connectionState === "error"
-        ? "There was a problem connecting to the room server."
-        : connectionState === "disconnected"
-          ? "Connecting you back to the room server."
-          : "We’re connecting you to the room. This screen will update once your join succeeds.";
+    : isRoomFull
+      ? (joinError ??
+        "This room has reached its member limit. Try again later or ask the admin to raise the limit.")
+      : isWaitingForAdmin
+        ? "The admin has not joined this room yet. You will be notified once they arrive."
+        : isWaitingForAdminApproval
+          ? "The admin is online. Please wait while they approve your entry into the room."
+          : connectionState === "error"
+            ? "There was a problem connecting to the room server."
+            : connectionState === "disconnected"
+              ? "Connecting you back to the room server."
+              : "We’re connecting you to the room. This screen will update once your join succeeds.";
 
   return (
     <motion.section
@@ -52,8 +58,10 @@ export default function JoinStatusScreen({
         <div className="absolute inset-0 bg-linear-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
         <div className="relative flex flex-col items-center text-center gap-5">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-primary/20 to-accent/20">
-            {isRejected ? (
-              <AlertCircle className="w-8 h-8 text-red-500" />
+            {isRejected || isRoomFull ? (
+              <AlertCircle
+                className={`w-8 h-8 ${isRoomFull ? "text-amber-500" : "text-red-500"}`}
+              />
             ) : joinState === "blocked" ? (
               <Clock className="w-8 h-8 text-primary" />
             ) : (

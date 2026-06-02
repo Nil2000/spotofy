@@ -42,6 +42,8 @@ export default function ClientPage({
     requestNextSong,
     users,
     nowPlaying,
+    upvotesUsed,
+    canUpvote,
   } = useWebSocket();
 
   const [isAdmin] = useState(user.isAdmin);
@@ -107,10 +109,17 @@ export default function ClientPage({
                   queue={queue}
                   userId={user.userId}
                   isConnected={isConnected}
+                  canUpvote={canUpvote}
+                  upvotesUsed={upvotesUsed}
+                  maxUpvotes={roomConfig?.maxUpvotes ?? 0}
                   upvoteSong={upvoteSong}
                 />
 
-                <UsersSidebar users={users} currentUserId={user.userId} />
+                <UsersSidebar
+                  users={users}
+                  currentUserId={user.userId}
+                  maxUsers={roomConfig?.maxUsers}
+                />
               </div>
             </div>
           )}

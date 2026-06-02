@@ -31,6 +31,9 @@ export const ServerEvents = {
   USER_REJECTED: "user.rejected",
   PENDING_JOIN_REQUESTS: "room.pending_join_requests",
   NOW_PLAYING_UPDATED: "now_playing.updated",
+  ROOM_USER_LIMIT_REACHED: "room.user_limit_reached",
+  ROOM_UPVOTE_LIMIT_REACHED: "room.upvote_limit_reached",
+  USER_UPVOTES_USAGE: "user.upvotes_usage",
 } as const;
 
 export const ALL_CLIENT_EVENTS = Object.values(ClientEvents);
