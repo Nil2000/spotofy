@@ -30,6 +30,7 @@ model User {
   sessions              Session[]
   accounts              Account[]
   rooms                 Room[]
+  requestedSongs        Song[]
   spotifyOAuthState     SpotifyOAuthState?
 
   @@unique([email])
@@ -128,11 +129,14 @@ model Song {
   upvotes   Int        @default(0)
   imgUrl    String
   status    SongStatus @default(REQUESTED)
+  requestedByUserId String?
+  requestedBy       User?      @relation(fields: [requestedByUserId], references: [id], onDelete: SetNull)
   roomId    String
   room      Room       @relation(fields: [roomId], references: [id], onDelete: Cascade)
   createdAt DateTime   @default(now())
 
   @@index([roomId])
+  @@index([requestedByUserId])
   @@index([roomId, songId])
   @@map("song")
 }

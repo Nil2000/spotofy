@@ -16,6 +16,12 @@ type UpvoteResult =
   | "upvote_limit_reached";
 
 export type RequestSongResult = SongData | "duplicate";
+export type RejectedSongResult = {
+  id: string;
+  name: string;
+  artist: string;
+  requestedByUserId: string | null;
+} | null;
 
 type UserPayloadWithWs = UserPayload & {
   ws: WebSocket;
@@ -133,21 +139,11 @@ export class Room {
     return song;
   }
 
-  static async findOrCreate(roomId: string, adminId: string): Promise<Room> {
-    let dbRoom = await prisma.room.findUnique({ where: { id: roomId } });
+  static async find(roomId: string): Promise<Room | null> {
+    const dbRoom = await prisma.room.findUnique({ where: { id: roomId } });
 
     if (!dbRoom) {
-      dbRoom = await prisma.room.create({
-        data: {
-          id: roomId,
-          name: roomId,
-          adminId,
-          maxUpvotes: 10,
-          maxUsers: 10,
-          autoApproveSongs: false,
-          autoApproveUsers: false,
-        },
-      });
+      return null;
     }
 
     return new Room({
@@ -161,7 +157,10 @@ export class Room {
     });
   }
 
-  async requestSong(songPayload: SongPayload): Promise<RequestSongResult> {
+  async requestSong(
+    songPayload: SongPayload,
+    requestedByUserId: string,
+  ): Promise<RequestSongResult> {
     const existing = await prisma.song.findFirst({
       where: {
         roomId: this.config.id,
@@ -181,6 +180,7 @@ export class Room {
         artist: songPayload.artist,
         url: songPayload.url,
         imgUrl: songPayload.imgUrl,
+        requestedByUserId,
         roomId: this.config.id,
         status: this.config.autoApproveSongs ? "QUEUED" : "REQUESTED",
       },
@@ -278,20 +278,23 @@ export class Room {
     }
   }
 
-  async rejectSong(songId: string): Promise<boolean> {
+  async rejectSong(
+    songId: string,
+  ): Promise<RejectedSongResult> {
     try {
-      await prisma.song.update({
+      const song = await prisma.song.update({
         where: { id: songId, roomId: this.config.id, status: "REQUESTED" },
         data: { status: "REJECTED" },
+        select: {
+          id: true,
+          name: true,
+          artist: true,
+          requestedByUserId: true,
+        },
       });
-      // const timeout = songRequestTimeouts.get(songId);
-      // if (timeout) {
-      //   clearTimeout(timeout);
-      //   songRequestTimeouts.delete(songId);
-      // }
-      return true;
+      return song;
     } catch {
-      return false;
+      return null;
     }
   }
 

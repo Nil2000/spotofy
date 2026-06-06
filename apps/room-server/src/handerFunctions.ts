@@ -98,6 +98,7 @@ async function admitUserToRoom(
   });
   room.removeUserRequest(user.userId);
 
+  const currentSong = await room.playCurrentSong();
   const queue = await room.loadSongs();
   const upvotesUsed = await room.getUserUpvoteCount(user.userId);
 
@@ -116,23 +117,14 @@ async function admitUserToRoom(
     payload: { users: room.getUsers() },
   });
 
-  const currentSong = await room.playCurrentSong();
-  send(user.ws, {
+  broadcastToRoom(roomId, {
     type: ServerEvents.NOW_PLAYING_UPDATED,
     payload: { song: currentSong ?? null },
   });
 
-  send(user.ws, {
+  broadcastToRoom(roomId, {
     type: ServerEvents.QUEUE_UPDATED,
     payload: { queue },
-  });
-
-  send(user.ws, {
-    type: ServerEvents.USER_APPROVED,
-    payload: {
-      userId: user.userId,
-      username: user.username,
-    },
   });
 
   return true;
@@ -171,9 +163,17 @@ async function getRoom(roomId: string): Promise<Room | null> {
 async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
   const { roomId, user } = msg.payload;
 
-  let room = roomCache.get(roomId);
+  let room: Room | null = roomCache.get(roomId) ?? null;
   if (!room) {
-    room = await Room.findOrCreate(roomId, user.userId);
+    room = await Room.find(roomId);
+    if (!room) {
+      send(ws, {
+        type: ServerEvents.ERROR,
+        payload: { message: "Room not found" },
+      });
+      connections.delete(ws);
+      return;
+    }
     roomCache.set(roomId, room);
   }
 
@@ -239,6 +239,7 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
   connections.get(ws)!.status = "joined";
   room.addUser(user);
 
+  const currentSong = await room.playCurrentSong();
   const queue = await room.loadSongs();
   const upvotesUsed = await room.getUserUpvoteCount(user.userId);
 
@@ -259,15 +260,12 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
     payload: { users: room.getUsers() },
   });
 
-  // send current song to this user
-  const currentSong = await room.playCurrentSong();
-  send(ws, {
+  broadcastToRoom(roomId, {
     type: ServerEvents.NOW_PLAYING_UPDATED,
     payload: { song: currentSong ?? null },
   });
 
-  // send queue update to this user
-  send(ws, {
+  broadcastToRoom(roomId, {
     type: ServerEvents.QUEUE_UPDATED,
     payload: { queue },
   });
@@ -305,6 +303,7 @@ async function handleRejectUser(ws: WebSocket, msg: RejectUserMessage) {
   // send to user that request is rejected
   sendToUser(msg.payload.userId, {
     type: ServerEvents.USER_REJECTED,
+    payload: {},
   });
 }
 
@@ -379,7 +378,7 @@ async function handleRequestSong(ws: WebSocket, msg: RequestSongMessage) {
     });
   }
 
-  const result = await room.requestSong(msg.payload.song);
+  const result = await room.requestSong(msg.payload.song, conn.user.userId);
 
   if (result === "duplicate") {
     return send(ws, {
@@ -395,6 +394,10 @@ async function handleRequestSong(ws: WebSocket, msg: RequestSongMessage) {
   if (room.isAutoApproveSongs()) {
     await sendQueueUpdate(conn.roomId, room);
   } else {
+    send(conn.ws, {
+      type: ServerEvents.SONG_REQUEST_SUBMITTED,
+      payload: { song: songData },
+    });
     sendToAdmin(conn.roomId, room, {
       type: ServerEvents.SONG_REQUESTED,
       payload: { song: songData },
@@ -529,7 +532,12 @@ async function handleRejectSong(ws: WebSocket, msg: RejectSongMessage) {
   if (success) {
     broadcastToRoom(conn.roomId, {
       type: ServerEvents.SONG_REJECTED,
-      payload: { songId: msg.payload.songId },
+      payload: {
+        songId: success.id,
+        name: success.name,
+        artist: success.artist,
+        requestedByUserId: success.requestedByUserId,
+      },
     });
   } else {
     send(ws, {

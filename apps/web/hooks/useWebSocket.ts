@@ -19,6 +19,7 @@ import { ClientMessageSchema, ServerMessageSchema } from "@/types/websocket";
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("disconnected");
   const [joinState, setJoinState] = useState<JoinState>("idle");
@@ -136,6 +137,11 @@ export function useWebSocket() {
           break;
         }
 
+        case ServerEvents.SONG_REQUEST_SUBMITTED: {
+          toast.success("Song submitted for approval");
+          break;
+        }
+
         case ServerEvents.SONG_APPROVED: {
           setPendingRequests((prev) =>
             prev.filter((song) => song.id !== message.payload.songId),
@@ -147,6 +153,14 @@ export function useWebSocket() {
           setPendingRequests((prev) =>
             prev.filter((song) => song.id !== message.payload.songId),
           );
+          if (
+            message.payload.requestedByUserId &&
+            message.payload.requestedByUserId === currentUserIdRef.current
+          ) {
+            toast.error(
+              `"${message.payload.name}" by ${message.payload.artist} was not approved`,
+            );
+          }
           break;
         }
 
@@ -287,6 +301,7 @@ export function useWebSocket() {
 
   const joinRoom = useCallback(
     (roomId: string, user: UserPayload) => {
+      currentUserIdRef.current = user.userId;
       setJoinState("joining");
       setJoinError(null);
       sendMessage({

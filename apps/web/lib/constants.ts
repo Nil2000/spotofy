@@ -17,6 +17,7 @@ export const ClientEvents = {
 export const ServerEvents = {
   QUEUE_UPDATED: "queue.updated",
   SONG_REQUESTED: "song.requested",
+  SONG_REQUEST_SUBMITTED: "song.request_submitted",
   SONG_APPROVED: "song.approved",
   SONG_REJECTED: "song.rejected",
   ERROR: "error",

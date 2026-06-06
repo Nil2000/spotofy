@@ -187,6 +187,17 @@ export const SongRequestedMessageSchema = z.object({
 
 export type SongRequestedMessage = z.infer<typeof SongRequestedMessageSchema>;
 
+export const SongRequestSubmittedMessageSchema = z.object({
+  type: z.literal(ServerEvents.SONG_REQUEST_SUBMITTED),
+  payload: z.object({
+    song: SongDataSchema,
+  }),
+});
+
+export type SongRequestSubmittedMessage = z.infer<
+  typeof SongRequestSubmittedMessageSchema
+>;
+
 export const SongApprovedMessageSchema = z.object({
   type: z.literal(ServerEvents.SONG_APPROVED),
   payload: z.object({
@@ -200,6 +211,9 @@ export const SongRejectedMessageSchema = z.object({
   type: z.literal(ServerEvents.SONG_REJECTED),
   payload: z.object({
     songId: z.string().min(1),
+    name: z.string().min(1),
+    artist: z.string().min(1),
+    requestedByUserId: z.string().min(1).nullable(),
   }),
 });
 
@@ -315,6 +329,7 @@ export type UserApprovedMessage = z.infer<typeof UserApprovedMessageSchema>;
 
 export const UserRejectedMessageSchema = z.object({
   type: z.literal(ServerEvents.USER_REJECTED),
+  payload: z.object({}),
 });
 
 export type UserRejectedMessage = z.infer<typeof UserRejectedMessageSchema>;
@@ -344,6 +359,7 @@ export type NowPlayingUpdateMessage = z.infer<
 export const OutgoingMessageSchema = z.discriminatedUnion("type", [
   QueueUpdateMessageSchema,
   SongRequestedMessageSchema,
+  SongRequestSubmittedMessageSchema,
   SongApprovedMessageSchema,
   SongRejectedMessageSchema,
   ErrorMessageSchema,
