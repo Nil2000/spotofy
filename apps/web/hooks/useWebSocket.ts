@@ -56,7 +56,6 @@ export function useWebSocket() {
           setJoinState("joined");
           setJoinError(null);
           setRoomConfig(message.payload.config);
-          setQueue(message.payload.queue);
           setUpvotesUsed(message.payload.upvotesUsed);
           break;
         }
@@ -104,7 +103,7 @@ export function useWebSocket() {
 
         case ServerEvents.USER_REJECTED: {
           setJoinState("rejected");
-          setJoinError("Your entry request was rejected by the admin.");
+          setJoinError(message.payload.message);
           setRoomConfig(null);
           setQueue([]);
           setPendingRequests([]);

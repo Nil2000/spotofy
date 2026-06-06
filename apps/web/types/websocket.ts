@@ -244,7 +244,6 @@ export const JoinedRoomMessageSchema = z.object({
   payload: z.object({
     roomId: z.string().min(1),
     config: RoomConfigSchema,
-    queue: z.array(SongDataSchema),
     upvotesUsed: z.number().int().nonnegative(),
   }),
 });
@@ -319,7 +318,10 @@ export type UserApprovedMessage = z.infer<typeof UserApprovedMessageSchema>;
 
 export const UserRejectedMessageSchema = z.object({
   type: z.literal(ServerEvents.USER_REJECTED),
-  payload: z.object({}),
+  payload: z.object({
+    roomId: z.string().min(1),
+    message: z.string().min(1),
+  }),
 });
 
 export type UserRejectedMessage = z.infer<typeof UserRejectedMessageSchema>;

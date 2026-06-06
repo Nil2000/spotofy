@@ -107,7 +107,6 @@ async function admitUserToRoom(
     payload: {
       roomId,
       config: room.getConfig(),
-      queue,
       upvotesUsed,
     },
   });
@@ -249,7 +248,6 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
     payload: {
       roomId,
       config: room.getConfig(),
-      queue,
       upvotesUsed,
     },
   });
@@ -303,7 +301,10 @@ async function handleRejectUser(ws: WebSocket, msg: RejectUserMessage) {
   // send to user that request is rejected
   sendToUser(msg.payload.userId, {
     type: ServerEvents.USER_REJECTED,
-    payload: {},
+    payload: {
+      roomId: conn.roomId,
+      message: "Your entry request was rejected by the admin.",
+    },
   });
 }
 
