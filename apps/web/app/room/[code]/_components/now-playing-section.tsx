@@ -11,6 +11,7 @@ type NowPlayingSectionProps = {
   spotifyToken: string | null;
   nowPlaying: SongData | null;
   requestNextSong: () => void;
+  onPlayerReady?: () => void;
 };
 
 export default function NowPlayingSection({
@@ -18,6 +19,7 @@ export default function NowPlayingSection({
   spotifyToken,
   nowPlaying,
   requestNextSong,
+  onPlayerReady,
 }: NowPlayingSectionProps) {
   return (
     <motion.section
@@ -66,6 +68,7 @@ export default function NowPlayingSection({
                 token={spotifyToken}
                 nowPlayingUrl={nowPlaying.url}
                 onSongEnd={requestNextSong}
+                onReady={onPlayerReady}
               />
             ) : (
               <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-center sm:items-start">

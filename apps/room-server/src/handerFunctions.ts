@@ -38,7 +38,6 @@ function sendToAdmin(roomId: string, room: Room, message: OutgoingMessage) {
   for (const [, conn] of connections) {
     if (conn.roomId === roomId && conn.user?.userId === adminId) {
       send(conn.ws, message);
-      break;
     }
   }
 }
@@ -47,7 +46,6 @@ function sendToUser(userId: string, message: OutgoingMessage) {
   for (const [, conn] of connections) {
     if (conn.user?.userId === userId) {
       send(conn.ws, message);
-      break;
     }
   }
 }
@@ -98,7 +96,7 @@ async function admitUserToRoom(
   });
   room.removeUserRequest(user.userId);
 
-  const currentSong = await room.playCurrentSong();
+  const currentSong = await room.getCurrentSong();
   const queue = await room.loadSongs();
   const upvotesUsed = await room.getUserUpvoteCount(user.userId);
 
@@ -152,6 +150,13 @@ async function sendQueueUpdate(roomId: string, room: Room) {
   broadcastToRoom(roomId, {
     type: ServerEvents.QUEUE_UPDATED,
     payload: { queue },
+  });
+}
+
+function sendPendingListToAdmin(roomId: string, room: Room) {
+  sendToAdmin(roomId, room, {
+    type: ServerEvents.PENDING_JOIN_REQUESTS,
+    payload: { users: room.getUsersRequestedList() },
   });
 }
 
@@ -238,7 +243,7 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
   connections.get(ws)!.status = "joined";
   room.addUser(user);
 
-  const currentSong = await room.playCurrentSong();
+  const currentSong = await room.getCurrentSong();
   const queue = await room.loadSongs();
   const upvotesUsed = await room.getUserUpvoteCount(user.userId);
 
@@ -306,6 +311,9 @@ async function handleRejectUser(ws: WebSocket, msg: RejectUserMessage) {
       message: "Your entry request was rejected by the admin.",
     },
   });
+
+  // push authoritative pending list back to admin so all tabs are in sync
+  sendPendingListToAdmin(conn.roomId, room);
 }
 
 async function handleApproveUser(ws: WebSocket, msg: ApproveUserMessage) {
@@ -359,7 +367,11 @@ async function handleApproveUser(ws: WebSocket, msg: ApproveUserMessage) {
         message: `Room is full (${room.getConfig().maxUsers} users max)`,
       },
     });
+    return;
   }
+
+  // push authoritative pending list back to admin so all tabs are in sync
+  sendPendingListToAdmin(conn.roomId, room);
 }
 
 async function handleRequestSong(ws: WebSocket, msg: RequestSongMessage) {
@@ -394,6 +406,15 @@ async function handleRequestSong(ws: WebSocket, msg: RequestSongMessage) {
 
   if (room.isAutoApproveSongs()) {
     await sendQueueUpdate(conn.roomId, room);
+    // Start playback if nothing is currently playing
+    const currentSong = await room.getCurrentSong();
+    if (!currentSong) {
+      const next = await room.playNextSong();
+      broadcastToRoom(conn.roomId, {
+        type: ServerEvents.NOW_PLAYING_UPDATED,
+        payload: { song: next ?? null },
+      });
+    }
   } else {
     send(conn.ws, {
       type: ServerEvents.SONG_REQUEST_SUBMITTED,
@@ -494,13 +515,15 @@ async function handleApproveSong(ws: WebSocket, msg: ApproveSongMessage) {
     payload: { songId: msg.payload.songId },
   });
 
-  // if there is no current song, play the next song
-  const currentSong = await room.playCurrentSong();
-
-  broadcastToRoom(conn.roomId, {
-    type: ServerEvents.NOW_PLAYING_UPDATED,
-    payload: { song: currentSong ?? null },
-  });
+  // Start playback only if nothing is currently playing
+  let currentSong = await room.getCurrentSong();
+  if (!currentSong) {
+    currentSong = await room.playNextSong();
+    broadcastToRoom(conn.roomId, {
+      type: ServerEvents.NOW_PLAYING_UPDATED,
+      payload: { song: currentSong ?? null },
+    });
+  }
 
   await sendQueueUpdate(conn.roomId, room);
 }
@@ -599,14 +622,13 @@ async function handlePlayCurrentSong(ws: WebSocket) {
     });
   }
 
-  const song = await room.playCurrentSong();
+  // Read-only resync: broadcast the current PLAYING song without promoting queue
+  const song = await room.getCurrentSong();
 
   broadcastToRoom(conn.roomId, {
     type: ServerEvents.NOW_PLAYING_UPDATED,
     payload: { song: song ?? null },
   });
-
-  await sendQueueUpdate(conn.roomId, room);
 }
 
 export async function handleMessage(ws: WebSocket, raw: string) {
@@ -687,4 +709,12 @@ export function handleDisconnect(ws: WebSocket) {
     type: ServerEvents.MEMBERS_UPDATED,
     payload: { users: room.getUsers() },
   });
+
+  // Evict room from cache when no connections remain to free memory
+  const hasRemaining = Array.from(connections.values()).some(
+    (c) => c.roomId === conn.roomId,
+  );
+  if (!hasRemaining) {
+    roomCache.delete(conn.roomId);
+  }
 }

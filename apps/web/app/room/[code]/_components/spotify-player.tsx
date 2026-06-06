@@ -66,13 +66,6 @@ type ExtendedPlaybackState = SpotifyPlaybackState & {
   duration: number;
 };
 
-type PlaybackSnapshot = {
-  uri: string;
-  paused: boolean;
-  position: number;
-  duration: number;
-};
-
 function reportPlayerError(
   message: string,
   details?: unknown,
@@ -183,7 +176,7 @@ export default function SpotifyWebPlayer({
 
     // Disable repeat
     await stopRepeat();
-  }, []);
+  }, [stopRepeat]);
 
   async function activateDevice(deviceId: string) {
     const fresh = await fetchFreshToken();

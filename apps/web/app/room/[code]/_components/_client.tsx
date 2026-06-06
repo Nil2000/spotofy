@@ -40,6 +40,7 @@ export default function ClientPage({
     approveUser,
     rejectUser,
     requestNextSong,
+    broadcastNowPlaying,
     users,
     nowPlaying,
     upvotesUsed,
@@ -79,6 +80,7 @@ export default function ClientPage({
                   spotifyToken={spotifyToken}
                   nowPlaying={nowPlaying}
                   requestNextSong={requestNextSong}
+                  onPlayerReady={broadcastNowPlaying}
                 />
 
                 <RequestSongSection

@@ -255,22 +255,29 @@ export class Room {
     return result;
   }
 
+  async getCurrentSong(): Promise<SongData | null> {
+    const song = await prisma.song.findFirst({
+      where: { roomId: this.config.id, status: "PLAYING" },
+    });
+    if (!song) return null;
+    return {
+      id: song.id,
+      songId: song.songId,
+      name: song.name,
+      artist: song.artist,
+      url: song.url,
+      upvotes: song.upvotes,
+      imgUrl: song.imgUrl,
+      status: song.status,
+    };
+  }
+
   async approveSong(songId: string): Promise<boolean> {
     try {
       await prisma.song.update({
         where: { id: songId, roomId: this.config.id, status: "REQUESTED" },
         data: { status: "QUEUED" },
       });
-      // const timeout = songRequestTimeouts.get(songId);
-      // if (timeout) {
-      //   clearTimeout(timeout);
-      //   songRequestTimeouts.delete(songId);
-      // }
-      // if no current song, play the new song
-      const currentSong = await this.playCurrentSong();
-      if (!currentSong) {
-        await this.playNextSong();
-      }
       return true;
     } catch (error) {
       console.error("Error approving song:", error);
@@ -278,9 +285,7 @@ export class Room {
     }
   }
 
-  async rejectSong(
-    songId: string,
-  ): Promise<RejectedSongResult> {
+  async rejectSong(songId: string): Promise<RejectedSongResult> {
     try {
       const song = await prisma.song.update({
         where: { id: songId, roomId: this.config.id, status: "REQUESTED" },
@@ -333,22 +338,7 @@ export class Room {
   }
 
   async playCurrentSong(): Promise<SongData | null> {
-    const song = await prisma.song.findFirst({
-      where: { roomId: this.config.id, status: "PLAYING" },
-    });
-    if (song) {
-      return {
-        id: song.id,
-        songId: song.songId,
-        name: song.name,
-        artist: song.artist,
-        url: song.url,
-        upvotes: song.upvotes,
-        imgUrl: song.imgUrl,
-        status: song.status,
-      };
-    }
-    return await this.playNextSong();
+    return this.getCurrentSong();
   }
 
   async playNextSong(): Promise<SongData | null> {
