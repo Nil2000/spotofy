@@ -94,7 +94,7 @@ Zod schemas and TypeScript types live in:
 
 **When adding or changing WebSocket message types, update both apps and keep constants in sync.**
 
-Server handlers: `apps/room-server/src/handerFunctions.ts` (note the filename spelling).
+Server handlers: `apps/room-server/src/handerFunctions.ts` (router; note the filename spelling). Handler logic lives in `apps/room-server/src/handlers/`; shared helpers in `apps/room-server/src/lib/`.
 
 ## Environment variables
 
