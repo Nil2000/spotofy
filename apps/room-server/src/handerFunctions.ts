@@ -141,6 +141,9 @@ async function notifyPendingUsersOnAdminJoin(roomId: string, room: Room) {
         type: ServerEvents.ADMIN_JOINED,
         payload: {},
       });
+    } else {
+      sendUserLimitReached(pendingUser.ws, room.getConfig().maxUsers);
+      room.removeUserRequest(pendingUser.userId);
     }
   }
 }
@@ -166,6 +169,39 @@ async function getRoom(roomId: string): Promise<Room | null> {
 
 async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
   const { roomId, user } = msg.payload;
+
+  // Idempotency: if this socket is already joined for the same room+user, just
+  // resend authoritative state instead of resetting the connection to pending.
+  const existing = connections.get(ws);
+  if (
+    existing?.status === "joined" &&
+    existing.roomId === roomId &&
+    existing.user?.userId === user.userId
+  ) {
+    const cachedRoom = roomCache.get(roomId);
+    if (cachedRoom) {
+      const currentSong = await cachedRoom.getCurrentSong();
+      const queue = await cachedRoom.loadSongs();
+      const upvotesUsed = await cachedRoom.getUserUpvoteCount(user.userId);
+      send(ws, {
+        type: ServerEvents.ROOM_JOINED,
+        payload: { roomId, config: cachedRoom.getConfig(), upvotesUsed },
+      });
+      send(ws, {
+        type: ServerEvents.MEMBERS_UPDATED,
+        payload: { users: cachedRoom.getUsers() },
+      });
+      send(ws, {
+        type: ServerEvents.NOW_PLAYING_UPDATED,
+        payload: { song: currentSong ?? null },
+      });
+      send(ws, {
+        type: ServerEvents.QUEUE_UPDATED,
+        payload: { queue },
+      });
+    }
+    return;
+  }
 
   let room: Room | null = roomCache.get(roomId) ?? null;
   if (!room) {
@@ -198,6 +234,15 @@ async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
       send(ws, {
         type: ServerEvents.PENDING_JOIN_REQUESTS,
         payload: { users: userRequests },
+      });
+    }
+
+    // send backlog of songs pending admin approval
+    const requestedSongs = await room.loadRequestedSongs();
+    if (requestedSongs.length > 0) {
+      send(ws, {
+        type: ServerEvents.PENDING_SONG_REQUESTS,
+        payload: { songs: requestedSongs },
       });
     }
   } else {
@@ -283,6 +328,13 @@ async function handleRejectUser(ws: WebSocket, msg: RejectUserMessage) {
     });
   }
 
+  if (conn.status !== "joined") {
+    return send(ws, {
+      type: ServerEvents.ERROR,
+      payload: { message: "You have not joined this room yet" },
+    });
+  }
+
   // check if user is admin
   if (!conn.user.isAdmin) {
     return send(ws, {
@@ -322,6 +374,13 @@ async function handleApproveUser(ws: WebSocket, msg: ApproveUserMessage) {
     return send(ws, {
       type: ServerEvents.ERROR,
       payload: { message: "Not in a room" },
+    });
+  }
+
+  if (conn.status !== "joined") {
+    return send(ws, {
+      type: ServerEvents.ERROR,
+      payload: { message: "You have not joined this room yet" },
     });
   }
 
@@ -383,6 +442,13 @@ async function handleRequestSong(ws: WebSocket, msg: RequestSongMessage) {
     });
   }
 
+  if (conn.status !== "joined") {
+    return send(ws, {
+      type: ServerEvents.ERROR,
+      payload: { message: "You have not joined this room yet" },
+    });
+  }
+
   const room = await getRoom(conn.roomId);
   if (!room) {
     return send(ws, {
@@ -436,6 +502,13 @@ async function handleUpvote(ws: WebSocket, msg: UpvoteSongMessage) {
     });
   }
 
+  if (conn.status !== "joined") {
+    return send(ws, {
+      type: ServerEvents.ERROR,
+      payload: { message: "You have not joined this room yet" },
+    });
+  }
+
   const room = await getRoom(conn.roomId);
   if (!room) {
     return send(ws, {
@@ -483,6 +556,13 @@ async function handleApproveSong(ws: WebSocket, msg: ApproveSongMessage) {
     return send(ws, {
       type: ServerEvents.ERROR,
       payload: { message: "Not in a room" },
+    });
+  }
+
+  if (conn.status !== "joined") {
+    return send(ws, {
+      type: ServerEvents.ERROR,
+      payload: { message: "You have not joined this room yet" },
     });
   }
 
@@ -537,6 +617,13 @@ async function handleRejectSong(ws: WebSocket, msg: RejectSongMessage) {
     });
   }
 
+  if (conn.status !== "joined") {
+    return send(ws, {
+      type: ServerEvents.ERROR,
+      payload: { message: "You have not joined this room yet" },
+    });
+  }
+
   const room = await getRoom(conn.roomId);
   if (!room) {
     return send(ws, {
@@ -580,6 +667,13 @@ async function handleNextSong(ws: WebSocket) {
     });
   }
 
+  if (conn.status !== "joined") {
+    return send(ws, {
+      type: ServerEvents.ERROR,
+      payload: { message: "You have not joined this room yet" },
+    });
+  }
+
   const room = await getRoom(conn.roomId);
   if (!room) {
     return send(ws, {
@@ -611,6 +705,13 @@ async function handlePlayCurrentSong(ws: WebSocket) {
     return send(ws, {
       type: ServerEvents.ERROR,
       payload: { message: "Not in a room" },
+    });
+  }
+
+  if (conn.status !== "joined") {
+    return send(ws, {
+      type: ServerEvents.ERROR,
+      payload: { message: "You have not joined this room yet" },
     });
   }
 

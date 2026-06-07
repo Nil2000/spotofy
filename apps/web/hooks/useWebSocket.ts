@@ -133,6 +133,12 @@ export function useWebSocket() {
           break;
         }
 
+        case ServerEvents.JOIN_ALREADY_PENDING: {
+          setJoinStateAndRef("joining");
+          setJoinError(null);
+          break;
+        }
+
         case ServerEvents.ADMIN_JOINED: {
           setIsAdminJoined(true);
           setJoinStateAndRef((prev) => (prev === "blocked" ? "joining" : prev));
@@ -184,6 +190,11 @@ export function useWebSocket() {
 
         case ServerEvents.PENDING_JOIN_REQUESTS: {
           setPendingUsers(message.payload.users);
+          break;
+        }
+
+        case ServerEvents.PENDING_SONG_REQUESTS: {
+          setPendingRequests(message.payload.songs);
           break;
         }
 

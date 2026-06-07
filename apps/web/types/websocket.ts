@@ -337,6 +337,17 @@ export type UsersRequestedListMessage = z.infer<
   typeof UsersRequestedListMessageSchema
 >;
 
+export const PendingSongRequestsMessageSchema = z.object({
+  type: z.literal(ServerEvents.PENDING_SONG_REQUESTS),
+  payload: z.object({
+    songs: z.array(SongDataSchema),
+  }),
+});
+
+export type PendingSongRequestsMessage = z.infer<
+  typeof PendingSongRequestsMessageSchema
+>;
+
 export const NowPlayingUpdateMessageSchema = z.object({
   type: z.literal(ServerEvents.NOW_PLAYING_UPDATED),
   payload: z.object({
@@ -369,6 +380,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   UserRejectedMessageSchema,
   UsersRequestedListMessageSchema,
   NowPlayingUpdateMessageSchema,
+  PendingSongRequestsMessageSchema,
 ]);
 
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;
