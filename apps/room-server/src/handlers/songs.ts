@@ -48,12 +48,11 @@ export async function handleRequestSong(
 
   if (room.isAutoApproveSongs()) {
     await sendQueueUpdate(conn.roomId, room);
-    const currentSong = await room.getCurrentSong();
-    if (!currentSong) {
-      const next = await room.playNextSong();
+    const { song, started } = await room.promoteNextIfIdle();
+    if (started) {
       broadcastToRoom(conn.roomId, {
         type: ServerEvents.NOW_PLAYING_UPDATED,
-        payload: { song: next ?? null },
+        payload: { song },
       });
     }
   } else {
@@ -153,12 +152,11 @@ export async function handleApproveSong(
     payload: { songId: msg.payload.songId },
   });
 
-  let currentSong = await room.getCurrentSong();
-  if (!currentSong) {
-    currentSong = await room.playNextSong();
+  const { song, started } = await room.promoteNextIfIdle();
+  if (started) {
     broadcastToRoom(conn.roomId, {
       type: ServerEvents.NOW_PLAYING_UPDATED,
-      payload: { song: currentSong ?? null },
+      payload: { song },
     });
   }
 
