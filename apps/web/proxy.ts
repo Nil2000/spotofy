@@ -14,21 +14,14 @@ export async function proxy(request: NextRequest) {
     headers: await headers(),
   });
 
-  // THIS IS NOT SECURE!
-  // This is the recommended approach to optimistically redirect users
-  // We recommend handling auth checks in each page/route
-  // if (!session) {
-  //   return NextResponse.redirect(new URL("/login", request.url));
-  // }
-
-  // console.log(session);
-
+  const { pathname } = request.nextUrl;
   const isLoggedIn = !!session;
-  const isAuthRoute = authRoutes.includes(request.nextUrl.pathname);
-  const isPublicRoute = publicRoutes.includes(request.nextUrl.pathname);
-  const isApiAuthRoute = authPrefix.includes(request.nextUrl.pathname);
-  const isProtectedRoute = protectedRoutes.includes(request.nextUrl.pathname);
-  // const isAuthProtectedRoute=authProtectedRoutes.includes(request.nextUrl.pathname);
+  const isAuthRoute = authRoutes.includes(pathname);
+  const isPublicRoute = publicRoutes.includes(pathname);
+  const isApiAuthRoute = pathname.startsWith(authPrefix);
+  const isProtectedRoute = protectedRoutes.some(
+    (route) => pathname === route || pathname.startsWith(route + "/"),
+  );
 
   if (isApiAuthRoute || isPublicRoute) {
     return NextResponse.next();
@@ -41,7 +34,9 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!isLoggedIn && isProtectedRoute) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(
+      new URL(`/login?callbackUrl=${encodeURIComponent(pathname)}`, request.url),
+    );
   }
 
   return NextResponse.next();

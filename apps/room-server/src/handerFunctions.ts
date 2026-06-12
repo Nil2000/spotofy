@@ -70,7 +70,7 @@ export function handleDisconnect(ws: WebSocket) {
   const room = roomCache.get(conn.roomId);
   if (!room) return;
 
-  if (conn.user.isAdmin) {
+  if (conn.user.userId === room.getAdminId()) {
     room.setAdminStatus(false);
 
     broadcastToRoom(conn.roomId, {

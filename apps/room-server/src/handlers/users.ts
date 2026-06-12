@@ -15,18 +15,18 @@ export async function handleRejectUser(ws: WebSocket, msg: RejectUserMessage) {
 
   const { conn } = ctx;
 
-  if (!conn.user!.isAdmin) {
-    return send(ws, {
-      type: ServerEvents.ERROR,
-      payload: { message: "User is not admin" },
-    });
-  }
-
   const room = getRoom(conn.roomId);
   if (!room) {
     return send(ws, {
       type: ServerEvents.ERROR,
       payload: { message: "Room not found" },
+    });
+  }
+
+  if (conn.user!.userId !== room.getAdminId()) {
+    return send(ws, {
+      type: ServerEvents.ERROR,
+      payload: { message: "User is not admin" },
     });
   }
 
@@ -60,7 +60,7 @@ export async function handleApproveUser(
     });
   }
 
-  if (!conn.user!.isAdmin) {
+  if (conn.user!.userId !== room.getAdminId()) {
     return send(ws, {
       type: ServerEvents.ERROR,
       payload: { message: "User is not admin" },
