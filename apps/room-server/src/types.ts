@@ -69,8 +69,14 @@ export const RoomConfigSchema = z.object({
 
 export type RoomConfig = z.infer<typeof RoomConfigSchema>;
 
+export type WsAuth = {
+  userId: string;
+  roomId: string;
+};
+
 export type ClientConnection = {
   ws: WebSocket;
+  auth: WsAuth;
   user: UserPayload | null;
   roomId: string;
   status: "joined" | "pending";
@@ -82,7 +88,6 @@ export const JoinRoomMessageSchema = z.object({
   type: z.literal(ClientEvents.JOIN_ROOM),
   payload: z.object({
     roomId: z.string().min(1),
-    user: UserPayloadSchema,
   }),
 });
 

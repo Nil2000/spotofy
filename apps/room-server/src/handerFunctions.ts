@@ -14,6 +14,12 @@ import { broadcastToRoom, send } from "./lib/messaging";
 import { IncomingMessageSchema, type IncomingMessage } from "./types";
 
 export async function handleMessage(ws: WebSocket, raw: string) {
+  const conn = connections.get(ws);
+  if (!conn?.auth) {
+    ws.close(4401, "Unauthorized");
+    return;
+  }
+
   let msg: IncomingMessage;
   try {
     const parsedMessage = IncomingMessageSchema.safeParse(JSON.parse(raw));

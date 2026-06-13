@@ -4,7 +4,6 @@ import {
   ServerEvents,
 } from "@/lib/constants";
 import type {
-  UserPayload,
   RoomConfig,
   SongData,
   SongPayload,
@@ -13,6 +12,7 @@ import type {
   ConnectionState,
   JoinState,
   UserShortPayload,
+  UserPayload,
 } from "@/types/websocket";
 import { toast } from "@repo/ui/components/ui/sonner";
 import { ClientMessageSchema, ServerMessageSchema } from "@/types/websocket";
@@ -20,15 +20,27 @@ import { ClientMessageSchema, ServerMessageSchema } from "@/types/websocket";
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
 
-export function useWebSocket() {
+async function fetchWsToken(roomId: string): Promise<string | null> {
+  const res = await fetch(
+    `/api/ws/token?roomId=${encodeURIComponent(roomId)}`,
+    { credentials: "include" },
+  );
+
+  if (!res.ok) return null;
+
+  const data = (await res.json()) as { token?: string };
+  return data.token ?? null;
+}
+
+export function useWebSocket(roomId: string, userId: string) {
   const wsRef = useRef<WebSocket | null>(null);
-  const currentUserIdRef = useRef<string | null>(null);
-  const currentRoomIdRef = useRef<string | null>(null);
-  const currentUserRef = useRef<UserPayload | null>(null);
+  const currentUserIdRef = useRef(userId);
+  const currentRoomIdRef = useRef(roomId);
   const shouldReconnectRef = useRef(true);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
   const joinStateRef = useRef<JoinState>("idle");
+  const connectRef = useRef<() => void>(() => {});
 
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("disconnected");
@@ -43,7 +55,9 @@ export function useWebSocket() {
   const [isAdminJoined, setIsAdminJoined] = useState(false);
   const [upvotesUsed, setUpvotesUsed] = useState(0);
 
-  // Keep a ref in sync with joinState so reconnect closures can read it
+  currentUserIdRef.current = userId;
+  currentRoomIdRef.current = roomId;
+
   const setJoinStateAndRef = useCallback((next: JoinState | ((prev: JoinState) => JoinState)) => {
     setJoinState((prev) => {
       const value = typeof next === "function" ? next(prev) : next;
@@ -62,6 +76,16 @@ export function useWebSocket() {
     },
     [],
   );
+
+  const sendJoinMessage = useCallback((ws: WebSocket, targetRoomId: string) => {
+    setJoinStateAndRef("joining");
+    ws.send(
+      JSON.stringify({
+        type: ClientEvents.JOIN_ROOM,
+        payload: { roomId: targetRoomId },
+      }),
+    );
+  }, [setJoinStateAndRef]);
 
   const handleServerMessage = useCallback(
     (message: ServerMessage) => {
@@ -233,35 +257,40 @@ export function useWebSocket() {
     [reportError, setJoinStateAndRef],
   );
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     setConnectionState("connecting");
 
     try {
-      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
-      wsRef.current = new WebSocket(wsUrl);
+      const token = await fetchWsToken(roomId);
+      if (!token) {
+        setConnectionState("error");
+        reportError(
+          "Failed to authenticate WebSocket connection",
+          undefined,
+          "websocket-auth-error",
+        );
+        return;
+      }
 
-      wsRef.current.onopen = () => {
+      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
+      const ws = new WebSocket(
+        `${wsUrl}?token=${encodeURIComponent(token)}`,
+      );
+      wsRef.current = ws;
+
+      ws.onopen = () => {
         reconnectAttemptRef.current = 0;
         setConnectionState("connected");
         console.log("WebSocket connected");
 
-        // Auto-rejoin the room if we were in one before disconnecting
-        const roomId = currentRoomIdRef.current;
-        const user = currentUserRef.current;
-        if (roomId && user) {
-          setJoinStateAndRef("joining");
-          wsRef.current?.send(
-            JSON.stringify({
-              type: ClientEvents.JOIN_ROOM,
-              payload: { roomId, user },
-            }),
-          );
+        if (currentRoomIdRef.current) {
+          sendJoinMessage(ws, currentRoomIdRef.current);
         }
       };
 
-      wsRef.current.onmessage = (event) => {
+      ws.onmessage = (event) => {
         try {
           console.log("Received message:", event.data);
 
@@ -288,12 +317,12 @@ export function useWebSocket() {
         }
       };
 
-      wsRef.current.onclose = () => {
+      ws.onclose = () => {
         setConnectionState("disconnected");
         console.log("WebSocket disconnected");
 
-        // Don't reconnect for terminal join states or if unmounted
-        const terminal = joinStateRef.current === "rejected" || joinStateRef.current === "full";
+        const terminal =
+          joinStateRef.current === "rejected" || joinStateRef.current === "full";
         if (!shouldReconnectRef.current || terminal) return;
 
         const attempt = reconnectAttemptRef.current;
@@ -304,11 +333,11 @@ export function useWebSocket() {
         reconnectAttemptRef.current = attempt + 1;
         console.log(`Reconnecting in ${delay}ms (attempt ${attempt + 1})`);
         reconnectTimerRef.current = setTimeout(() => {
-          if (shouldReconnectRef.current) connect();
+          if (shouldReconnectRef.current) connectRef.current();
         }, delay);
       };
 
-      wsRef.current.onerror = (err) => {
+      ws.onerror = (err) => {
         setConnectionState("error");
         reportError(
           "WebSocket connection error",
@@ -324,7 +353,9 @@ export function useWebSocket() {
         "websocket-create-error",
       );
     }
-  }, [handleServerMessage, reportError, setJoinStateAndRef]);
+  }, [handleServerMessage, reportError, roomId, sendJoinMessage]);
+
+  connectRef.current = connect;
 
   const sendMessage = useCallback(
     (message: ClientMessage) => {
@@ -353,18 +384,15 @@ export function useWebSocket() {
   );
 
   const joinRoom = useCallback(
-    (roomId: string, user: UserPayload) => {
-      currentUserIdRef.current = user.userId;
-      currentRoomIdRef.current = roomId;
-      currentUserRef.current = user;
-      setJoinStateAndRef("joining");
+    (targetRoomId: string) => {
+      currentRoomIdRef.current = targetRoomId;
       setJoinError(null);
-      sendMessage({
-        type: ClientEvents.JOIN_ROOM,
-        payload: { roomId, user },
-      });
+
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        sendJoinMessage(wsRef.current, targetRoomId);
+      }
     },
-    [sendMessage, setJoinStateAndRef],
+    [sendJoinMessage],
   );
 
   const requestSong = useCallback(
@@ -378,10 +406,10 @@ export function useWebSocket() {
   );
 
   const upvoteSong = useCallback(
-    (songId: string, userId: string) => {
+    (songId: string, upvoteUserId: string) => {
       sendMessage({
         type: ClientEvents.UPVOTE_SONG,
-        payload: { songId, userId },
+        payload: { songId, userId: upvoteUserId },
       });
     },
     [sendMessage],
@@ -408,20 +436,20 @@ export function useWebSocket() {
   );
 
   const approveUser = useCallback(
-    (userId: string, username: string) => {
+    (approveUserId: string, username: string) => {
       sendMessage({
         type: ClientEvents.APPROVE_USER,
-        payload: { userId, username },
+        payload: { userId: approveUserId, username },
       });
     },
     [sendMessage],
   );
 
   const rejectUser = useCallback(
-    (userId: string, username: string) => {
+    (rejectUserId: string, username: string) => {
       sendMessage({
         type: ClientEvents.REJECT_USER,
-        payload: { userId, username },
+        payload: { userId: rejectUserId, username },
       });
     },
     [sendMessage],
@@ -438,6 +466,7 @@ export function useWebSocket() {
   useEffect(() => {
     shouldReconnectRef.current = true;
     connect();
+
     return () => {
       shouldReconnectRef.current = false;
       if (reconnectTimerRef.current) {

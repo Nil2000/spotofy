@@ -85,8 +85,13 @@ export async function admitUserToRoom(
     return false;
   }
 
+  const existing = connections.get(user.ws);
+  if (!existing?.auth) {
+    return false;
+  }
+
   connections.set(user.ws, {
-    ws: user.ws,
+    ...existing,
     user: {
       userId: user.userId,
       username: user.username,

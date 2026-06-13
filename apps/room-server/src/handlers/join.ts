@@ -12,22 +12,28 @@ import {
   sendToAdmin,
   sendUserLimitReached,
 } from "../lib/messaging";
+import { resolveUserPayload } from "../lib/user";
 import { Room } from "../room";
 import type { JoinRoomMessage } from "../types";
 
 export async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
-  const { roomId, user } = msg.payload;
+  const conn = connections.get(ws);
+  if (!conn?.auth) {
+    send(ws, {
+      type: ServerEvents.ERROR,
+      payload: { message: "Unauthorized" },
+    });
+    ws.close(4401, "Unauthorized");
+    return;
+  }
 
-  const existing = connections.get(ws);
-  if (
-    existing?.status === "joined" &&
-    existing.roomId === roomId &&
-    existing.user?.userId === user.userId
-  ) {
-    const cachedRoom = roomCache.get(roomId);
-    if (cachedRoom) {
-      await sendJoinedSnapshotToClient(ws, roomId, cachedRoom, user.userId);
-    }
+  const { roomId } = msg.payload;
+
+  if (roomId !== conn.auth.roomId) {
+    send(ws, {
+      type: ServerEvents.ERROR,
+      payload: { message: "Token is not valid for this room" },
+    });
     return;
   }
 
@@ -45,7 +51,30 @@ export async function handleJoinRoom(ws: WebSocket, msg: JoinRoomMessage) {
     roomCache.set(roomId, room);
   }
 
-  connections.set(ws, { ws, user, roomId, status: "pending" });
+  const user = await resolveUserPayload(conn.auth.userId, room.getAdminId());
+  if (!user) {
+    send(ws, {
+      type: ServerEvents.ERROR,
+      payload: { message: "User not found" },
+    });
+    connections.delete(ws);
+    return;
+  }
+
+  const existing = connections.get(ws);
+  if (
+    existing?.status === "joined" &&
+    existing.roomId === roomId &&
+    existing.user?.userId === user.userId
+  ) {
+    const cachedRoom = roomCache.get(roomId);
+    if (cachedRoom) {
+      await sendJoinedSnapshotToClient(ws, roomId, cachedRoom, user.userId);
+    }
+    return;
+  }
+
+  connections.set(ws, { ...conn, user, roomId, status: "pending" });
 
   if (user.userId === room.getAdminId()) {
     room.setAdminStatus(true);

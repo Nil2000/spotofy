@@ -72,7 +72,6 @@ export const JoinRoomMessageSchema = z.object({
   type: z.literal(ClientEvents.JOIN_ROOM),
   payload: z.object({
     roomId: z.string().min(1),
-    user: UserPayloadSchema,
   }),
 });
 
@@ -410,7 +409,7 @@ export type UseWebSocketReturn = {
   roomConfig: RoomConfig | null;
   queue: SongData[];
   pendingRequests: SongData[];
-  joinRoom: (roomId: string, user: UserPayload) => void;
+  joinRoom: (roomId: string) => void;
   requestSong: (song: SongPayload) => void;
   upvoteSong: (songId: string, userId: string) => void;
   approveSong: (songId: string) => void;

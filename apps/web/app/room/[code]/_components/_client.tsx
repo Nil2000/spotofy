@@ -45,15 +45,15 @@ export default function ClientPage({
     nowPlaying,
     upvotesUsed,
     canUpvote,
-  } = useWebSocket();
+  } = useWebSocket(code, user.userId);
 
   const [isAdmin] = useState(user.isAdmin);
 
   useEffect(() => {
     if (isConnected) {
-      joinRoom(code, user);
+      joinRoom(code);
     }
-  }, [isConnected, code, user, joinRoom, isAdmin]);
+  }, [isConnected, code, joinRoom]);
 
   const isJoiningScreenVisible = !isAdmin && joinState !== "joined";
 

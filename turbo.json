@@ -9,14 +9,22 @@
       "env": [
         "DATABASE_URL",
         "WEB_APP_URL",
+        "NEXT_PUBLIC_WEB_APP_URL",
         "BETTER_AUTH_SECRET",
         "GOOGLE_CLIENT_*",
         "WS_PORT",
+        "WS_SECRET",
         "SPOTIFY_*"
       ]
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": ["^lint"],
+      "env": [
+        "WEB_APP_URL",
+        "NEXT_PUBLIC_WEB_APP_URL",
+        "WS_PORT",
+        "WS_SECRET"
+      ]
     },
     "check-types": {
       "dependsOn": ["^check-types"]
