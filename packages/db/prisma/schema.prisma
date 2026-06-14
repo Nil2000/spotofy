@@ -30,7 +30,9 @@ model User {
   sessions              Session[]
   accounts              Account[]
   rooms                 Room[]
+  requestedSongs        Song[]
   spotifyOAuthState     SpotifyOAuthState?
+  songUpvoteHistory     SongUpvoteHistory[]
 
   @@unique([email])
   @@map("user")
@@ -96,17 +98,18 @@ model Verification {
 }
 
 model Room {
-  id               String   @id @default(cuid())
-  name             String
-  adminId          String
-  admin            User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
-  maxUpvotes       Int      @default(5)
-  maxUsers         Int      @default(10)
-  autoApproveSongs Boolean  @default(false)
-  autoApproveUsers Boolean  @default(false)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  songs            Song[]
+  id                 String               @id @default(cuid())
+  name               String
+  adminId            String
+  admin              User                 @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  maxUpvotes         Int                  @default(5)
+  maxUsers           Int                  @default(10)
+  autoApproveSongs   Boolean              @default(false)
+  autoApproveUsers   Boolean              @default(false)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  songs              Song[]
+  songUpvoteHistory  SongUpvoteHistory[]
 
   @@index([adminId])
   @@map("room")
@@ -120,26 +123,35 @@ enum SongStatus {
 }
 
 model Song {
-  id        String     @id @default(cuid())
-  name      String
-  artist    String
-  url       String
-  upvotes   Int        @default(0)
-  imgUrl    String
-  status    SongStatus @default(REQUESTED)
-  roomId    String
-  room      Room       @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  createdAt DateTime   @default(now())
+  id                String              @id @default(cuid())
+  songId            String
+  name              String
+  artist            String
+  url               String
+  upvotes           Int                 @default(0)
+  imgUrl            String
+  status            SongStatus          @default(REQUESTED)
+  requestedByUserId String?
+  requestedBy       User?               @relation(fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  roomId            String
+  room              Room                @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  createdAt         DateTime            @default(now())
+  upvoteHistory     SongUpvoteHistory[]
 
   @@index([roomId])
+  @@index([requestedByUserId])
+  @@index([roomId, songId])
   @@map("song")
 }
 
 model SongUpvoteHistory {
   id        String   @id @default(cuid())
   roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
   songId    String
+  song      Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
   userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@unique([roomId, songId, userId])

@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Clock, Music, ThumbsUp } from "lucide-react";
+import { Clock, Music, ThumbsUp, AlertTriangle } from "lucide-react";
 import Image from "next/image";
 
 import { Button } from "@repo/ui/components/ui/button";
@@ -9,6 +9,9 @@ type QueueSidebarProps = {
   queue: SongData[];
   userId: string;
   isConnected: boolean;
+  canUpvote: boolean;
+  upvotesUsed: number;
+  maxUpvotes: number;
   upvoteSong: (songId: string, userId: string) => void;
 };
 
@@ -16,8 +19,12 @@ export default function QueueSidebar({
   queue,
   userId,
   isConnected,
+  canUpvote,
+  upvotesUsed,
+  maxUpvotes,
   upvoteSong,
 }: QueueSidebarProps) {
+  const upvoteLimitReached = maxUpvotes > 0 && upvotesUsed >= maxUpvotes;
   return (
     <motion.aside
       initial={{ opacity: 0, y: 18 }}
@@ -32,6 +39,21 @@ export default function QueueSidebar({
         </div>
         <span className="text-xs text-muted-foreground">{queue.length} songs</span>
       </div>
+
+      {upvoteLimitReached && (
+        <div className="mx-3 mt-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <p>
+            You&apos;ve used all {maxUpvotes} upvotes allowed in this room.
+          </p>
+        </div>
+      )}
+
+      {!upvoteLimitReached && maxUpvotes > 0 && upvotesUsed > 0 && (
+        <p className="px-4 pt-3 text-xs text-muted-foreground">
+          {upvotesUsed} / {maxUpvotes} upvotes used
+        </p>
+      )}
 
       <div className="p-3 space-y-2 max-h-80 sm:max-h-100 overflow-y-auto">
         {queue.length === 0 ? (
@@ -67,7 +89,12 @@ export default function QueueSidebar({
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                     <Button
                       onClick={() => upvoteSong(song.id, userId)}
-                      disabled={!isConnected}
+                      disabled={!isConnected || !canUpvote}
+                      title={
+                        !canUpvote
+                          ? `Upvote limit reached (${maxUpvotes} per room)`
+                          : undefined
+                      }
                       variant="outline"
                       className="h-auto rounded-lg bg-primary/10 hover:bg-primary/20 px-2 py-1 text-xs font-medium text-primary"
                       type="button"

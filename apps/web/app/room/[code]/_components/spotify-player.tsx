@@ -12,7 +12,12 @@ import {
   Pause,
   ChevronRight,
   Repeat,
+  Repeat1,
 } from "lucide-react";
+
+/** SDK repeat_mode: 0 = off, 1 = context, 2 = track */
+type SdkRepeatMode = 0 | 1 | 2;
+type RepeatApiState = "off" | "track" | "context";
 
 type SpotifyPlayer = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,7 +32,10 @@ type SpotifyPlayer = {
 
 type SpotifyPlaybackState = {
   paused: boolean;
-  track_window: { current_track: SpotifyTrack };
+  track_window: {
+    previous_tracks: SpotifyTrack[];
+    current_track: SpotifyTrack;
+  };
 };
 
 declare global {
@@ -44,6 +52,7 @@ declare global {
 }
 
 type SpotifyTrack = {
+  id: string;
   uri: string;
   name: string;
   artists: { name: string }[];
@@ -60,13 +69,7 @@ type Props = {
 type ExtendedPlaybackState = SpotifyPlaybackState & {
   position: number;
   duration: number;
-};
-
-type PlaybackSnapshot = {
-  uri: string;
-  paused: boolean;
-  position: number;
-  duration: number;
+  repeat_mode: SdkRepeatMode;
 };
 
 function reportPlayerError(
@@ -119,27 +122,51 @@ export default function SpotifyWebPlayer({
   const nowPlayingUrlRef = useRef<string | null | undefined>(nowPlayingUrl);
   const onReadyRef = useRef(onReady);
   const onSongEndRef = useRef(onSongEnd);
-  const prevPlaybackRef = useRef<PlaybackSnapshot | null>(null);
-  const songEndFiredRef = useRef(false);
   const [isPaused, setPaused] = useState(false);
   const [isActive, setActive] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<SpotifyTrack | null>(null);
+  const [repeatMode, setRepeatMode] = useState<SdkRepeatMode>(0);
+  const lastEndedTrackIdRef = useRef<string | null>(null);
+  const endOfTrackDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    tokenRef.current = token;
-  }, [token]);
+  tokenRef.current = token;
+  nowPlayingUrlRef.current = nowPlayingUrl;
+  onReadyRef.current = onReady;
+  onSongEndRef.current = onSongEnd;
 
-  useEffect(() => {
-    nowPlayingUrlRef.current = nowPlayingUrl;
-  }, [nowPlayingUrl]);
+  const setRepeat = useCallback(async (state: RepeatApiState): Promise<boolean> => {
+    const deviceId = deviceIdRef.current;
+    if (!deviceId) return false;
 
-  // useEffect(() => {
-  //   onReadyRef.current = onReady;
-  // }, [onReady]);
+    const fresh = await fetchFreshToken();
+    const accessToken = fresh ?? tokenRef.current;
+    const response = await fetch(
+      `https://api.spotify.com/v1/me/player/repeat?state=${state}&device_id=${deviceId}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
 
-  useEffect(() => {
-    onSongEndRef.current = onSongEnd;
-  }, [onSongEnd]);
+    if (!response.ok) {
+      reportPlayerError(
+        "Failed to update repeat mode.",
+        undefined,
+        "spotify-player-repeat-error",
+      );
+      return false;
+    }
+
+    return true;
+  }, []);
+
+  const toggleRepeat = useCallback(async () => {
+    const nextState: RepeatApiState = repeatMode === 0 ? "track" : "off";
+    await setRepeat(nextState);
+  }, [repeatMode, setRepeat]);
 
   const play = useCallback(async () => {
     const currentNowPlayingUrl = nowPlayingUrlRef.current;
@@ -171,36 +198,11 @@ export default function SpotifyWebPlayer({
         undefined,
         "spotify-player-play-error",
       );
+      return;
     }
-  }, []);
 
-  const stopRepeat = useCallback(async () => {
-    const fresh = await fetchFreshToken();
-    const accessToken = fresh ?? tokenRef.current;
-    await fetch(
-      `https://api.spotify.com/v1/me/player/repeat?state=off&device_id=${deviceIdRef.current}`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-      },
-    );
-  }, []);
-
-  useEffect(() => {
-    console.log("Nowplaying URL:", nowPlayingUrl);
-    console.log("Player active status:", isActive);
-    if (!nowPlayingUrl || !deviceIdRef.current || !isActive) return;
-    // prevTrackNameRef.current = nowPlayingUrl;
-    play().catch(console.error);
-  }, [nowPlayingUrl, isActive, play]);
-
-  // useEffect(() => {
-  //   if (!isActive || !nowPlayingUrl) return;
-  //   play().catch(console.error);
-  // }, [isActive]);
+    await setRepeat("off");
+  }, [setRepeat]);
 
   async function activateDevice(deviceId: string) {
     const fresh = await fetchFreshToken();
@@ -226,6 +228,7 @@ export default function SpotifyWebPlayer({
     }
   }
 
+  // --- Effects ---
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://sdk.scdn.co/spotify-player.js";
@@ -269,39 +272,47 @@ export default function SpotifyWebPlayer({
         const s = state as ExtendedPlaybackState | null;
         if (!s) {
           setActive(false);
-          prevPlaybackRef.current = null;
           return;
         }
-        const track = s.track_window.current_track;
-        const prev = prevPlaybackRef.current;
 
-        const endedNaturally =
-          !!prev &&
-          !prev.paused &&
-          s.paused &&
-          s.position === 0 &&
-          prev.uri === track.uri &&
-          prev.duration > 0 &&
-          prev.position >= Math.max(0, prev.duration - 1500);
+        const { paused, position, track_window, repeat_mode } = s;
+        const { previous_tracks, current_track } = track_window;
 
-        console.log("Ended naturally:", endedNaturally);
-        if (endedNaturally && !songEndFiredRef.current) {
-          songEndFiredRef.current = true;
-          onSongEndRef.current?.();
+        setRepeatMode(repeat_mode ?? 0);
+
+        console.log("[SpotifyPlayer] Player state changed:", {
+          paused,
+          position,
+          repeat_mode,
+          track_window,
+          previous_tracks,
+          current_track,
+        });
+
+        const trackJustEnded =
+          paused &&
+          position === 0 &&
+          previous_tracks.length > 0 &&
+          previous_tracks[0]?.id === current_track.id;
+
+        console.log("Track just ended:", trackJustEnded);
+        if (trackJustEnded) {
+          if (lastEndedTrackIdRef.current !== current_track.id) {
+            lastEndedTrackIdRef.current = current_track.id;
+
+            if (endOfTrackDebounceRef.current)
+              clearTimeout(endOfTrackDebounceRef.current);
+            endOfTrackDebounceRef.current = setTimeout(() => {
+              onSongEndRef.current?.();
+            }, 1000);
+          }
+        } else {
+          if (!paused && position > 0) {
+            lastEndedTrackIdRef.current = null;
+          }
         }
 
-        if (prev?.uri !== track.uri || (!s.paused && s.position > 0)) {
-          songEndFiredRef.current = false;
-        }
-
-        prevPlaybackRef.current = {
-          uri: track.uri,
-          paused: s.paused,
-          position: s.position,
-          duration: s.duration,
-        };
-
-        setCurrentTrack(track);
+        setCurrentTrack(current_track);
         setPaused(s.paused);
         player.getCurrentState().then((currentState) => {
           // console.log("CURRENT_STATE:", !!currentState);
@@ -325,6 +336,13 @@ export default function SpotifyWebPlayer({
       document.body.removeChild(script);
     };
   }, [token, play]);
+
+  useEffect(() => {
+    console.log("Nowplaying URL:", nowPlayingUrl);
+    console.log("Player active status:", isActive);
+    if (!nowPlayingUrl || !deviceIdRef.current || !isActive) return;
+    play().catch(console.error);
+  }, [nowPlayingUrl, isActive, play]);
 
   if (!isActive || !currentTrack) {
     return (
@@ -411,11 +429,34 @@ export default function SpotifyWebPlayer({
             <Button
               size="icon"
               variant="secondary"
-              className="w-12 h-12 rounded-full bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground shrink-0 shadow-xs"
+              className={`w-12 h-12 rounded-full shrink-0 shadow-xs ${
+                repeatMode !== 0
+                  ? "bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
+                  : "bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground"
+              }`}
               type="button"
-              onClick={() => stopRepeat()}
+              title={
+                repeatMode === 2
+                  ? "Repeat track on — click to turn off"
+                  : repeatMode === 1
+                    ? "Repeat context on — click to turn off"
+                    : "Repeat off — click to repeat track"
+              }
+              aria-label={
+                repeatMode === 2
+                  ? "Repeat track on"
+                  : repeatMode === 1
+                    ? "Repeat context on"
+                    : "Repeat off"
+              }
+              aria-pressed={repeatMode !== 0}
+              onClick={() => toggleRepeat()}
             >
-              <Repeat className="w-5 h-5" />
+              {repeatMode === 2 ? (
+                <Repeat1 className="w-5 h-5" />
+              ) : (
+                <Repeat className="w-5 h-5" />
+              )}
             </Button>
           </div>
 

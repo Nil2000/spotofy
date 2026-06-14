@@ -1,5 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { Button } from "@repo/ui/components/ui/button";
+import { signOut, useSession } from "@/lib/auth-client";
 import ThemeToggle from "./theme-toggle";
 import Logo from "./logo";
 
@@ -18,6 +21,20 @@ export default function Navbar({
   className = "fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-background/70 border-b border-border/50",
   containerClassName = "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
 }: NavbarProps) {
+  const router = useRouter();
+  const { data: session } = useSession();
+
+  const handleSignOut = async () => {
+    await signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          router.push("/");
+          router.refresh();
+        },
+      },
+    });
+  };
+
   return (
     <nav className={className}>
       <div className={containerClassName}>
@@ -34,6 +51,11 @@ export default function Navbar({
 
           <div className="flex items-center gap-2 sm:gap-3">
             {children}
+            {session && (
+              <Button variant="outline" size="sm" onClick={handleSignOut}>
+                Sign Out
+              </Button>
+            )}
             <ThemeToggle />
           </div>
         </div>

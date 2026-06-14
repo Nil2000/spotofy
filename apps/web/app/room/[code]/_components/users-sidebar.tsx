@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Crown, Users } from "lucide-react";
+import { AlertTriangle, Crown, Users } from "lucide-react";
 
 import { Badge } from "@repo/ui/components/ui/badge";
 import type { UserPayload } from "@/types/websocket";
@@ -7,12 +7,16 @@ import type { UserPayload } from "@/types/websocket";
 type UsersSidebarProps = {
   users: UserPayload[];
   currentUserId: string;
+  maxUsers?: number;
 };
 
 export default function UsersSidebar({
   users,
   currentUserId,
+  maxUsers,
 }: UsersSidebarProps) {
+  const isAtCapacity =
+    maxUsers !== undefined && maxUsers > 0 && users.length >= maxUsers;
   return (
     <motion.aside
       initial={{ opacity: 0, y: 18 }}
@@ -27,11 +31,23 @@ export default function UsersSidebar({
         </div>
         <Badge
           variant="outline"
-          className="text-xs px-2 py-1 h-auto rounded-full bg-primary/10 border-primary/20 text-primary font-medium"
+          className={`text-xs px-2 py-1 h-auto rounded-full font-medium ${
+            isAtCapacity
+              ? "bg-amber-500/10 border-amber-500/30 text-amber-200"
+              : "bg-primary/10 border-primary/20 text-primary"
+          }`}
         >
-          {users.length} online
+          {users.length}
+          {maxUsers !== undefined ? ` / ${maxUsers}` : ""} online
         </Badge>
       </div>
+
+      {isAtCapacity && (
+        <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <p>Room is at capacity. New guests cannot join until someone leaves.</p>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2">
         {users.map((user) => {

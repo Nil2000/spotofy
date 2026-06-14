@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
-  CLIENT_TO_SERVER_MESSAGE_TYPES,
-  SERVER_TO_CLIENT_MESSAGE_TYPES,
+  ClientEvents,
+  ServerEvents,
 } from "@/lib/constants";
 import type {
-  UserPayload,
   RoomConfig,
   SongData,
   SongPayload,
@@ -13,12 +12,36 @@ import type {
   ConnectionState,
   JoinState,
   UserShortPayload,
+  UserPayload,
 } from "@/types/websocket";
 import { toast } from "@repo/ui/components/ui/sonner";
 import { ClientMessageSchema, ServerMessageSchema } from "@/types/websocket";
 
-export function useWebSocket() {
+const RECONNECT_BASE_MS = 1000;
+const RECONNECT_MAX_MS = 30000;
+
+async function fetchWsToken(roomId: string): Promise<string | null> {
+  const res = await fetch(
+    `/api/ws/token?roomId=${encodeURIComponent(roomId)}`,
+    { credentials: "include" },
+  );
+
+  if (!res.ok) return null;
+
+  const data = (await res.json()) as { token?: string };
+  return data.token ?? null;
+}
+
+export function useWebSocket(roomId: string, userId: string) {
   const wsRef = useRef<WebSocket | null>(null);
+  const currentUserIdRef = useRef(userId);
+  const currentRoomIdRef = useRef(roomId);
+  const shouldReconnectRef = useRef(true);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptRef = useRef(0);
+  const joinStateRef = useRef<JoinState>("idle");
+  const connectRef = useRef<() => void>(() => {});
+
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("disconnected");
   const [joinState, setJoinState] = useState<JoinState>("idle");
@@ -30,6 +53,18 @@ export function useWebSocket() {
   const [users, setUsers] = useState<UserPayload[]>([]);
   const [nowPlaying, setNowPlaying] = useState<SongData | null>(null);
   const [isAdminJoined, setIsAdminJoined] = useState(false);
+  const [upvotesUsed, setUpvotesUsed] = useState(0);
+
+  currentUserIdRef.current = userId;
+  currentRoomIdRef.current = roomId;
+
+  const setJoinStateAndRef = useCallback((next: JoinState | ((prev: JoinState) => JoinState)) => {
+    setJoinState((prev) => {
+      const value = typeof next === "function" ? next(prev) : next;
+      joinStateRef.current = value;
+      return value;
+    });
+  }, []);
 
   const reportError = useCallback(
     (message: string, details?: unknown, toastId?: string) => {
@@ -42,24 +77,63 @@ export function useWebSocket() {
     [],
   );
 
+  const sendJoinMessage = useCallback((ws: WebSocket, targetRoomId: string) => {
+    setJoinStateAndRef("joining");
+    ws.send(
+      JSON.stringify({
+        type: ClientEvents.JOIN_ROOM,
+        payload: { roomId: targetRoomId },
+      }),
+    );
+  }, [setJoinStateAndRef]);
+
   const handleServerMessage = useCallback(
     (message: ServerMessage) => {
       switch (message.type) {
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.LIST_USERS: {
+        case ServerEvents.MEMBERS_UPDATED: {
           setUsers(message.payload.users);
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.JOINED_ROOM: {
-          setJoinState("joined");
+        case ServerEvents.ROOM_JOINED: {
+          setJoinStateAndRef("joined");
           setJoinError(null);
           setRoomConfig(message.payload.config);
-          setQueue(message.payload.queue);
+          setUpvotesUsed(message.payload.upvotesUsed);
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_NOT_JOINED: {
-          setJoinState("blocked");
+        case ServerEvents.ROOM_USER_LIMIT_REACHED: {
+          setJoinStateAndRef("full");
+          setJoinError(
+            `This room is full (${message.payload.maxUsers} users max). Try again later.`,
+          );
+          setRoomConfig(null);
+          setQueue([]);
+          setPendingRequests([]);
+          setPendingUsers([]);
+          setUsers([]);
+          setNowPlaying(null);
+          setUpvotesUsed(0);
+          break;
+        }
+
+        case ServerEvents.ROOM_UPVOTE_LIMIT_REACHED: {
+          reportError(
+            `You've used all ${message.payload.maxUpvotes} upvotes for this room`,
+            undefined,
+            "websocket-upvote-limit",
+          );
+          break;
+        }
+
+        case ServerEvents.USER_UPVOTES_USAGE: {
+          setUpvotesUsed(message.payload.used);
+          break;
+        }
+
+        case ServerEvents.WAITING_FOR_ADMIN: {
+          setJoinStateAndRef("blocked");
           setJoinError(null);
           setRoomConfig(null);
           setQueue([]);
@@ -70,9 +144,9 @@ export function useWebSocket() {
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.USER_REJECTED: {
-          setJoinState("rejected");
-          setJoinError("Your entry request was rejected by the admin.");
+        case ServerEvents.USER_REJECTED: {
+          setJoinStateAndRef("rejected");
+          setJoinError(message.payload.message);
           setRoomConfig(null);
           setQueue([]);
           setPendingRequests([]);
@@ -83,46 +157,72 @@ export function useWebSocket() {
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_JOINED: {
+        case ServerEvents.JOIN_ALREADY_PENDING: {
+          setJoinStateAndRef("joining");
+          setJoinError(null);
+          break;
+        }
+
+        case ServerEvents.ADMIN_JOINED: {
           setIsAdminJoined(true);
+          setJoinStateAndRef((prev) => (prev === "blocked" ? "joining" : prev));
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.ADMIN_LEFT: {
+        case ServerEvents.ADMIN_LEFT: {
           setIsAdminJoined(false);
+          setJoinStateAndRef((prev) => (prev === "joining" ? "blocked" : prev));
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.QUEUE_UPDATE: {
+        case ServerEvents.QUEUE_UPDATED: {
           setQueue(message.payload.queue);
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.SONG_REQUESTED: {
+        case ServerEvents.SONG_REQUESTED: {
           setPendingRequests((prev) => [...prev, message.payload.song]);
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.SONG_APPROVED: {
+        case ServerEvents.SONG_REQUEST_SUBMITTED: {
+          toast.success("Song submitted for approval");
+          break;
+        }
+
+        case ServerEvents.SONG_APPROVED: {
           setPendingRequests((prev) =>
             prev.filter((song) => song.id !== message.payload.songId),
           );
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.SONG_REJECTED: {
+        case ServerEvents.SONG_REJECTED: {
           setPendingRequests((prev) =>
             prev.filter((song) => song.id !== message.payload.songId),
           );
+          if (
+            message.payload.requestedByUserId &&
+            message.payload.requestedByUserId === currentUserIdRef.current
+          ) {
+            toast.error(
+              `"${message.payload.name}" by ${message.payload.artist} was not approved`,
+            );
+          }
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.USERS_REQUESTED_LIST: {
+        case ServerEvents.PENDING_JOIN_REQUESTS: {
           setPendingUsers(message.payload.users);
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.JOIN_REQUESTED: {
+        case ServerEvents.PENDING_SONG_REQUESTS: {
+          setPendingRequests(message.payload.songs);
+          break;
+        }
+
+        case ServerEvents.USER_JOIN_REQUESTED: {
           setPendingUsers((prev) => {
             if (prev.some((u) => u.userId === message.payload.userId)) {
               return prev;
@@ -132,12 +232,12 @@ export function useWebSocket() {
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.NOW_PLAYING_UPDATE: {
+        case ServerEvents.NOW_PLAYING_UPDATED: {
           setNowPlaying(message.payload.song);
           break;
         }
 
-        case SERVER_TO_CLIENT_MESSAGE_TYPES.ERROR: {
+        case ServerEvents.ERROR: {
           reportError(
             message.payload.message,
             undefined,
@@ -154,29 +254,43 @@ export function useWebSocket() {
         }
       }
     },
-    [reportError],
+    [reportError, setJoinStateAndRef],
   );
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     setConnectionState("connecting");
 
     try {
-      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
-      wsRef.current = new WebSocket(wsUrl);
+      const token = await fetchWsToken(roomId);
+      if (!token) {
+        setConnectionState("error");
+        reportError(
+          "Failed to authenticate WebSocket connection",
+          undefined,
+          "websocket-auth-error",
+        );
+        return;
+      }
 
-      wsRef.current.onopen = () => {
+      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
+      const ws = new WebSocket(
+        `${wsUrl}?token=${encodeURIComponent(token)}`,
+      );
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        reconnectAttemptRef.current = 0;
         setConnectionState("connected");
         console.log("WebSocket connected");
 
-        // // Rejoin room if we were in one
-        // if (currentRoomId) {
-        //   // Note: User needs to be passed, this is handled by joinRoom
-        // }
+        if (currentRoomIdRef.current) {
+          sendJoinMessage(ws, currentRoomIdRef.current);
+        }
       };
 
-      wsRef.current.onmessage = (event) => {
+      ws.onmessage = (event) => {
         try {
           console.log("Received message:", event.data);
 
@@ -203,12 +317,27 @@ export function useWebSocket() {
         }
       };
 
-      wsRef.current.onclose = () => {
+      ws.onclose = () => {
         setConnectionState("disconnected");
         console.log("WebSocket disconnected");
+
+        const terminal =
+          joinStateRef.current === "rejected" || joinStateRef.current === "full";
+        if (!shouldReconnectRef.current || terminal) return;
+
+        const attempt = reconnectAttemptRef.current;
+        const delay = Math.min(
+          RECONNECT_BASE_MS * Math.pow(2, attempt),
+          RECONNECT_MAX_MS,
+        );
+        reconnectAttemptRef.current = attempt + 1;
+        console.log(`Reconnecting in ${delay}ms (attempt ${attempt + 1})`);
+        reconnectTimerRef.current = setTimeout(() => {
+          if (shouldReconnectRef.current) connectRef.current();
+        }, delay);
       };
 
-      wsRef.current.onerror = (err) => {
+      ws.onerror = (err) => {
         setConnectionState("error");
         reportError(
           "WebSocket connection error",
@@ -224,7 +353,9 @@ export function useWebSocket() {
         "websocket-create-error",
       );
     }
-  }, [handleServerMessage, reportError]);
+  }, [handleServerMessage, reportError, roomId, sendJoinMessage]);
+
+  connectRef.current = connect;
 
   const sendMessage = useCallback(
     (message: ClientMessage) => {
@@ -253,21 +384,21 @@ export function useWebSocket() {
   );
 
   const joinRoom = useCallback(
-    (roomId: string, user: UserPayload) => {
-      setJoinState("joining");
+    (targetRoomId: string) => {
+      currentRoomIdRef.current = targetRoomId;
       setJoinError(null);
-      sendMessage({
-        type: CLIENT_TO_SERVER_MESSAGE_TYPES.JOIN_ROOM,
-        payload: { roomId, user },
-      });
+
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        sendJoinMessage(wsRef.current, targetRoomId);
+      }
     },
-    [sendMessage],
+    [sendJoinMessage],
   );
 
   const requestSong = useCallback(
     (song: SongPayload) => {
       sendMessage({
-        type: CLIENT_TO_SERVER_MESSAGE_TYPES.REQUEST_SONG,
+        type: ClientEvents.REQUEST_SONG,
         payload: { song },
       });
     },
@@ -275,10 +406,10 @@ export function useWebSocket() {
   );
 
   const upvoteSong = useCallback(
-    (songId: string, userId: string) => {
+    (songId: string, upvoteUserId: string) => {
       sendMessage({
-        type: CLIENT_TO_SERVER_MESSAGE_TYPES.UPVOTE_SONG,
-        payload: { songId, userId },
+        type: ClientEvents.UPVOTE_SONG,
+        payload: { songId, userId: upvoteUserId },
       });
     },
     [sendMessage],
@@ -287,7 +418,7 @@ export function useWebSocket() {
   const approveSong = useCallback(
     (songId: string) => {
       sendMessage({
-        type: CLIENT_TO_SERVER_MESSAGE_TYPES.APPROVE_SONG,
+        type: ClientEvents.APPROVE_SONG,
         payload: { songId },
       });
     },
@@ -297,7 +428,7 @@ export function useWebSocket() {
   const rejectSong = useCallback(
     (songId: string) => {
       sendMessage({
-        type: CLIENT_TO_SERVER_MESSAGE_TYPES.REJECT_SONG,
+        type: ClientEvents.REJECT_SONG,
         payload: { songId },
       });
     },
@@ -305,43 +436,51 @@ export function useWebSocket() {
   );
 
   const approveUser = useCallback(
-    (userId: string, username: string) => {
-      setPendingUsers((prev) => prev.filter((u) => u.userId !== userId));
+    (approveUserId: string, username: string) => {
       sendMessage({
-        type: CLIENT_TO_SERVER_MESSAGE_TYPES.APPROVE_USER,
-        payload: { userId, username },
+        type: ClientEvents.APPROVE_USER,
+        payload: { userId: approveUserId, username },
       });
     },
     [sendMessage],
   );
 
   const rejectUser = useCallback(
-    (userId: string, username: string) => {
-      setPendingUsers((prev) => prev.filter((u) => u.userId !== userId));
+    (rejectUserId: string, username: string) => {
       sendMessage({
-        type: CLIENT_TO_SERVER_MESSAGE_TYPES.REJECT_USER,
-        payload: { userId, username },
+        type: ClientEvents.REJECT_USER,
+        payload: { userId: rejectUserId, username },
       });
     },
     [sendMessage],
   );
 
   const broadcastNowPlaying = useCallback(() => {
-    sendMessage({ type: CLIENT_TO_SERVER_MESSAGE_TYPES.BROADCAST_NOW_PLAYING });
+    sendMessage({ type: ClientEvents.SYNC_NOW_PLAYING });
   }, [sendMessage]);
 
   const requestNextSong = useCallback(() => {
-    sendMessage({ type: CLIENT_TO_SERVER_MESSAGE_TYPES.NEXT_SONG });
+    sendMessage({ type: ClientEvents.SKIP_TO_NEXT });
   }, [sendMessage]);
 
   useEffect(() => {
+    shouldReconnectRef.current = true;
     connect();
+
     return () => {
+      shouldReconnectRef.current = false;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       if (wsRef.current) {
         wsRef.current.close();
       }
     };
   }, [connect]);
+
+  const maxUpvotes = roomConfig?.maxUpvotes ?? 0;
+  const canUpvote = joinState === "joined" && upvotesUsed < maxUpvotes;
 
   return {
     connectionState,
@@ -353,6 +492,8 @@ export function useWebSocket() {
     queue,
     pendingRequests,
     pendingUsers,
+    upvotesUsed,
+    canUpvote,
     joinRoom,
     requestSong,
     upvoteSong,

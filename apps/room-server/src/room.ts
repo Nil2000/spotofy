@@ -1,4 +1,4 @@
-import { prisma } from "@repo/db";
+import { prisma, Prisma, type Song } from "@repo/db";
 import type {
   RoomConfig,
   SongPayload,
@@ -9,7 +9,24 @@ import type {
 import { createId } from "@paralleldrive/cuid2";
 import type { WebSocket } from "ws";
 
-type UpvoteResult = "success" | "already_upvoted" | "song_not_found";
+type PromoteNextIfIdleResult = {
+  song: SongData | null;
+  started: boolean;
+};
+
+type UpvoteResult =
+  | "success"
+  | "already_upvoted"
+  | "song_not_found"
+  | "upvote_limit_reached";
+
+export type RequestSongResult = SongData | "duplicate";
+export type RejectedSongResult = {
+  id: string;
+  name: string;
+  artist: string;
+  requestedByUserId: string | null;
+} | null;
 
 type UserPayloadWithWs = UserPayload & {
   ws: WebSocket;
@@ -20,9 +37,48 @@ export class Room {
   private users: Map<string, UserPayload> = new Map();
   private adminJoined: boolean = false;
   private usersRequested: Map<string, UserPayloadWithWs> = new Map();
+  private queueLock: Promise<unknown> = Promise.resolve();
 
   constructor(config: RoomConfig) {
     this.config = config;
+  }
+
+  private async withQueueLock<T>(fn: () => Promise<T>): Promise<T> {
+    const result = this.queueLock.then(fn);
+    this.queueLock = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
+  private toSongData(song: Song): SongData {
+    return {
+      id: song.id,
+      songId: song.songId,
+      name: song.name,
+      artist: song.artist,
+      url: song.url,
+      upvotes: song.upvotes,
+      imgUrl: song.imgUrl,
+      status: song.status,
+    };
+  }
+
+  private async findTopQueuedSongForUpdate(
+    tx: Prisma.TransactionClient,
+  ): Promise<string | null> {
+    const rows = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id
+      FROM "song"
+      WHERE "roomId" = ${this.config.id}
+        AND status = 'QUEUED'::"SongStatus"
+      ORDER BY upvotes DESC, "createdAt" ASC
+      LIMIT 1
+      FOR UPDATE SKIP LOCKED
+    `;
+
+    return rows[0]?.id ?? null;
   }
 
   addUser(user: UserPayload): void {
@@ -35,6 +91,27 @@ export class Room {
 
   getUsers(): UserPayload[] {
     return Array.from(this.users.values());
+  }
+
+  getMemberCount(): number {
+    return this.users.size;
+  }
+
+  hasUser(userId: string): boolean {
+    return this.users.has(userId);
+  }
+
+  isAtUserCapacity(userId: string): boolean {
+    if (this.hasUser(userId) || userId === this.config.admin) {
+      return false;
+    }
+    return this.getMemberCount() >= this.config.maxUsers;
+  }
+
+  async getUserUpvoteCount(userId: string): Promise<number> {
+    return prisma.songUpvoteHistory.count({
+      where: { roomId: this.config.id, userId },
+    });
   }
 
   getConfig(): RoomConfig {
@@ -90,6 +167,10 @@ export class Room {
     return this.usersRequested.get(userId);
   }
 
+  getPendingUserRequests(): UserPayloadWithWs[] {
+    return Array.from(this.usersRequested.values());
+  }
+
   clearUsersRequested(): void {
     this.usersRequested.clear();
   }
@@ -102,21 +183,11 @@ export class Room {
     return song;
   }
 
-  static async findOrCreate(roomId: string, adminId: string): Promise<Room> {
-    let dbRoom = await prisma.room.findUnique({ where: { id: roomId } });
+  static async find(roomId: string): Promise<Room | null> {
+    const dbRoom = await prisma.room.findUnique({ where: { id: roomId } });
 
     if (!dbRoom) {
-      dbRoom = await prisma.room.create({
-        data: {
-          id: roomId,
-          name: roomId,
-          adminId,
-          maxUpvotes: 10,
-          maxUsers: 10,
-          autoApproveSongs: false,
-          autoApproveUsers: false,
-        },
-      });
+      return null;
     }
 
     return new Room({
@@ -130,43 +201,48 @@ export class Room {
     });
   }
 
-  async requestSong(songPayload: SongPayload): Promise<SongData> {
-    const song = await prisma.song.create({
-      data: {
-        name: songPayload.name,
-        artist: songPayload.artist,
-        url: songPayload.url,
-        imgUrl: songPayload.imgUrl,
-        roomId: this.config.id,
-        status: this.config.autoApproveSongs ? "QUEUED" : "REQUESTED",
-      },
-    });
+  async requestSong(
+    songPayload: SongPayload,
+    requestedByUserId: string,
+  ): Promise<RequestSongResult> {
+    return this.withQueueLock(async () =>
+      prisma.$transaction(async (tx) => {
+        const existing = await tx.song.findFirst({
+          where: {
+            roomId: this.config.id,
+            songId: songPayload.songId,
+            status: { in: ["REQUESTED", "QUEUED", "PLAYING"] },
+          },
+        });
 
-    // if (!this.config.autoApproveSongs) {
-    //   const timeout = setTimeout(async () => {
-    //     songRequestTimeouts.delete(song.id);
-    //     await prisma.song
-    //       .update({
-    //         where: { id: song.id },
-    //         data: { status: "REJECTED" },
-    //       })
-    //       .catch(() => {});
-    //   }, SONG_REQUEST_TIMEOUT);
-    //   songRequestTimeouts.set(song.id, timeout);
-    // }
+        if (existing) {
+          return "duplicate";
+        }
 
-    return {
-      id: song.id,
-      name: song.name,
-      artist: song.artist,
-      url: song.url,
-      upvotes: song.upvotes,
-      imgUrl: song.imgUrl,
-      status: song.status,
-    };
+        const song = await tx.song.create({
+          data: {
+            songId: songPayload.songId,
+            name: songPayload.name,
+            artist: songPayload.artist,
+            url: songPayload.url,
+            imgUrl: songPayload.imgUrl,
+            requestedByUserId,
+            roomId: this.config.id,
+            status: this.config.autoApproveSongs ? "QUEUED" : "REQUESTED",
+          },
+        });
+
+        return this.toSongData(song);
+      }),
+    );
   }
 
   async upvote(songId: string, userId: string): Promise<UpvoteResult> {
+    const upvotesUsed = await this.getUserUpvoteCount(userId);
+    if (upvotesUsed >= this.config.maxUpvotes) {
+      return "upvote_limit_reached";
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const song = await tx.song.findFirst({
         where: { id: songId, roomId: this.config.id, status: "QUEUED" },
@@ -175,6 +251,13 @@ export class Room {
 
       if (!song) {
         return "song_not_found" satisfies UpvoteResult;
+      }
+
+      const upvotesInRoom = await tx.songUpvoteHistory.count({
+        where: { roomId: this.config.id, userId },
+      });
+      if (upvotesInRoom >= this.config.maxUpvotes) {
+        return "upvote_limit_reached" satisfies UpvoteResult;
       }
 
       const insertedRows = await tx.$executeRaw`
@@ -198,37 +281,51 @@ export class Room {
     return result;
   }
 
+  async getCurrentSong(): Promise<SongData | null> {
+    const song = await prisma.song.findFirst({
+      where: { roomId: this.config.id, status: "PLAYING" },
+    });
+    if (!song) return null;
+    return {
+      id: song.id,
+      songId: song.songId,
+      name: song.name,
+      artist: song.artist,
+      url: song.url,
+      upvotes: song.upvotes,
+      imgUrl: song.imgUrl,
+      status: song.status,
+    };
+  }
+
   async approveSong(songId: string): Promise<boolean> {
     try {
       await prisma.song.update({
         where: { id: songId, roomId: this.config.id, status: "REQUESTED" },
         data: { status: "QUEUED" },
       });
-      // const timeout = songRequestTimeouts.get(songId);
-      // if (timeout) {
-      //   clearTimeout(timeout);
-      //   songRequestTimeouts.delete(songId);
-      // }
       return true;
-    } catch {
+    } catch (error) {
+      console.error("Error approving song:", error);
       return false;
     }
   }
 
-  async rejectSong(songId: string): Promise<boolean> {
+  async rejectSong(songId: string): Promise<RejectedSongResult> {
     try {
-      await prisma.song.update({
+      const song = await prisma.song.update({
         where: { id: songId, roomId: this.config.id, status: "REQUESTED" },
         data: { status: "REJECTED" },
+        select: {
+          id: true,
+          name: true,
+          artist: true,
+          requestedByUserId: true,
+        },
       });
-      // const timeout = songRequestTimeouts.get(songId);
-      // if (timeout) {
-      //   clearTimeout(timeout);
-      //   songRequestTimeouts.delete(songId);
-      // }
-      return true;
+      return song;
     } catch {
-      return false;
+      return null;
     }
   }
 
@@ -239,6 +336,7 @@ export class Room {
     });
     return songs.map((s) => ({
       id: s.id,
+      songId: s.songId,
       name: s.name,
       artist: s.artist,
       url: s.url,
@@ -255,6 +353,7 @@ export class Room {
     });
     return songs.map((s) => ({
       id: s.id,
+      songId: s.songId,
       name: s.name,
       artist: s.artist,
       url: s.url,
@@ -265,52 +364,78 @@ export class Room {
   }
 
   async playCurrentSong(): Promise<SongData | null> {
-    const song = await prisma.song.findFirst({
-      where: { roomId: this.config.id, status: "PLAYING" },
-    });
-    if (song) {
-      return {
-        id: song.id,
-        name: song.name,
-        artist: song.artist,
-        url: song.url,
-        upvotes: song.upvotes,
-        imgUrl: song.imgUrl,
-        status: song.status,
-      };
-    }
-    return await this.playNextSong();
+    return this.getCurrentSong();
+  }
+
+  async promoteNextIfIdle(): Promise<PromoteNextIfIdleResult> {
+    return this.withQueueLock(async () =>
+      prisma.$transaction(async (tx) => {
+        const playing = await tx.song.findFirst({
+          where: { roomId: this.config.id, status: "PLAYING" },
+        });
+
+        if (playing) {
+          return { song: this.toSongData(playing), started: false };
+        }
+
+        const nextSongId = await this.findTopQueuedSongForUpdate(tx);
+        if (!nextSongId) {
+          return { song: null, started: false };
+        }
+
+        const promoted = await tx.song.updateMany({
+          where: {
+            id: nextSongId,
+            roomId: this.config.id,
+            status: "QUEUED",
+          },
+          data: { status: "PLAYING" },
+        });
+
+        if (promoted.count === 0) {
+          return { song: null, started: false };
+        }
+
+        const updated = await tx.song.findUniqueOrThrow({
+          where: { id: nextSongId },
+        });
+
+        return { song: this.toSongData(updated), started: true };
+      }),
+    );
   }
 
   async playNextSong(): Promise<SongData | null> {
-    // Delete the currently playing song (if any)
-    await prisma.song.deleteMany({
-      where: { roomId: this.config.id, status: "PLAYING" },
-    });
+    return this.withQueueLock(async () =>
+      prisma.$transaction(async (tx) => {
+        await tx.song.deleteMany({
+          where: { roomId: this.config.id, status: "PLAYING" },
+        });
 
-    // Get the top queued song (highest upvotes, earliest created)
-    const next = await prisma.song.findFirst({
-      where: { roomId: this.config.id, status: "QUEUED" },
-      orderBy: [{ upvotes: "desc" }, { createdAt: "asc" }],
-    });
+        const nextSongId = await this.findTopQueuedSongForUpdate(tx);
+        if (!nextSongId) {
+          return null;
+        }
 
-    if (!next) {
-      return null;
-    }
+        const promoted = await tx.song.updateMany({
+          where: {
+            id: nextSongId,
+            roomId: this.config.id,
+            status: "QUEUED",
+          },
+          data: { status: "PLAYING" },
+        });
 
-    const updated = await prisma.song.update({
-      where: { id: next.id },
-      data: { status: "PLAYING" },
-    });
+        if (promoted.count === 0) {
+          return null;
+        }
 
-    return {
-      id: updated.id,
-      name: updated.name,
-      artist: updated.artist,
-      url: updated.url,
-      upvotes: updated.upvotes,
-      imgUrl: updated.imgUrl,
-      status: updated.status,
-    };
+        const updated = await tx.song.findUniqueOrThrow({
+          where: { id: nextSongId },
+        });
+
+        return this.toSongData(updated);
+      }),
+    );
   }
 }
