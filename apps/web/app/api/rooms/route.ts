@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireSession } from "@/lib/require-session";
 import { prisma } from "@repo/db";
 import { z } from "zod";
 
@@ -10,11 +10,11 @@ const createRoomBodySchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: req.headers });
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authResult = await requireSession(req);
+  if (!authResult.ok) {
+    return authResult.response;
   }
+  const { session } = authResult;
 
   const rooms = await prisma.room.findMany({
     where: { adminId: session.user.id },
@@ -32,11 +32,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: req.headers });
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authResult = await requireSession(req);
+  if (!authResult.ok) {
+    return authResult.response;
   }
+  const { session } = authResult;
 
   const parsedBody = createRoomBodySchema.safeParse(await req.json());
 

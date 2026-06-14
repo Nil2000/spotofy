@@ -17,6 +17,7 @@
     "@repo/ui": "*",
     "better-auth": "^1.4.17",
     "dotenv-cli": "^11.0.0",
+    "jose": "^6.2.3",
     "lucide-react": "^0.563.0",
     "motion": "^12.31.0",
     "next": "16.0.10",

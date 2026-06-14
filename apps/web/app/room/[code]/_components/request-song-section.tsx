@@ -30,6 +30,7 @@ type RequestSongSectionProps = {
   isConnected: boolean;
   autoApproveSongs: boolean;
   requestSong: (song: {
+    songId: string;
     name: string;
     artist: string;
     url: string;
@@ -92,6 +93,7 @@ export default function RequestSongSection({
   const handleRequestSong = () => {
     if (!selectedSong) return;
     requestSong({
+      songId: selectedSong.id,
       name: selectedSong.name,
       artist: selectedSong.artist,
       url: selectedSong.url,

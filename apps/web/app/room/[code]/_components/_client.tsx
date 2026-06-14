@@ -40,17 +40,20 @@ export default function ClientPage({
     approveUser,
     rejectUser,
     requestNextSong,
+    broadcastNowPlaying,
     users,
     nowPlaying,
-  } = useWebSocket();
+    upvotesUsed,
+    canUpvote,
+  } = useWebSocket(code, user.userId);
 
   const [isAdmin] = useState(user.isAdmin);
 
   useEffect(() => {
     if (isConnected) {
-      joinRoom(code, user);
+      joinRoom(code);
     }
-  }, [isConnected, code, user, joinRoom, isAdmin]);
+  }, [isConnected, code, joinRoom]);
 
   const isJoiningScreenVisible = !isAdmin && joinState !== "joined";
 
@@ -77,6 +80,7 @@ export default function ClientPage({
                   spotifyToken={spotifyToken}
                   nowPlaying={nowPlaying}
                   requestNextSong={requestNextSong}
+                  onPlayerReady={broadcastNowPlaying}
                 />
 
                 <RequestSongSection
@@ -107,10 +111,17 @@ export default function ClientPage({
                   queue={queue}
                   userId={user.userId}
                   isConnected={isConnected}
+                  canUpvote={canUpvote}
+                  upvotesUsed={upvotesUsed}
+                  maxUpvotes={roomConfig?.maxUpvotes ?? 0}
                   upvoteSong={upvoteSong}
                 />
 
-                <UsersSidebar users={users} currentUserId={user.userId} />
+                <UsersSidebar
+                  users={users}
+                  currentUserId={user.userId}
+                  maxUsers={roomConfig?.maxUsers}
+                />
               </div>
             </div>
           )}
