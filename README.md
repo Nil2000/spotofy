@@ -1,6 +1,9 @@
 # Spotofy
 
+<img width="1823" height="1123" alt="image" src="https://github.com/user-attachments/assets/502258da-f832-4ac6-8369-6179746cf318" />
 Listen to music together. Spotofy lets a room host create a shared listening session on Spotify — guests join, request songs, upvote tracks, and everyone sees the queue update in real time.
+
+
 
 ## How it works
 
