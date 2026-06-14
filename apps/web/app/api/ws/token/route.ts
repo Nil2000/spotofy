@@ -1,16 +1,14 @@
-import { auth } from "@/lib/auth";
+import { requireSession } from "@/lib/require-session";
 import { generateRoomToken } from "@/lib/room-utils";
 import { prisma } from "@repo/db";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
-  const session = await auth.api.getSession({
-    headers: req.headers,
-  });
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authResult = await requireSession(req);
+  if (!authResult.ok) {
+    return authResult.response;
   }
+  const { session } = authResult;
 
   const roomId = req.nextUrl.searchParams.get("roomId");
   if (!roomId) {

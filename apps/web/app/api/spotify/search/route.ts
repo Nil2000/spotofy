@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireSession } from "@/lib/require-session";
 import { prisma } from "@repo/db";
 import { SPOTIFY_BASE_URL, SPOTIFY_TOKEN_PATH } from "@/lib/constants";
 
@@ -91,10 +91,11 @@ async function getValidToken(userId: string): Promise<string | null> {
 }
 
 export async function GET(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: req.headers });
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authResult = await requireSession(req);
+  if (!authResult.ok) {
+    return authResult.response;
   }
+  const { session } = authResult;
 
   const q = req.nextUrl.searchParams.get("q")?.trim();
   if (!q) {
