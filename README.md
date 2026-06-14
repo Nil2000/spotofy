@@ -61,7 +61,7 @@ bun install
 docker compose -f docker/docker-compose.dev.yml up -d
 ```
 
-This starts PostgreSQL on port `5432` with database `spotofy` and password `spotofy`.
+This starts PostgreSQL on port `5432` (user `postgres`, database `spotofy`, password `spotofy`).
 
 ### 3. Configure environment variables
 
@@ -88,7 +88,10 @@ SPOTIFY_CLIENT_SECRET="your-spotify-client-secret"
 
 NEXT_PUBLIC_WS_URL="ws://localhost:3001"
 WS_PORT=3001
+WS_SECRET="generate-a-long-random-string"
 ```
+
+`WS_SECRET` signs room-scoped WebSocket JWTs. Use the same value in both the web app and room server (see `.env.example`).
 
 **Google OAuth:** Create credentials in the [Google Cloud Console](https://console.cloud.google.com/). Add `http://localhost:3000` as an authorized origin and `http://localhost:3000/api/auth/callback/google` as a redirect URI.
 
@@ -117,6 +120,8 @@ This starts both the web app and the room server. Open [http://localhost:3000](h
 | `bun run build` | Build all packages |
 | `bun run lint` | Lint the codebase |
 | `bun run check-types` | Run TypeScript checks |
+| `bun run db:migrate` | Create and apply database migrations (development) |
+| `bun run db:deploy` | Apply migrations (production) |
 | `bun run db:studio` | Open Prisma Studio (database GUI) |
 
 To run a single app:
@@ -135,6 +140,9 @@ spotofy-app/
 │   └── room-server/   # WebSocket server for live rooms
 ├── packages/
 │   ├── db/            # Database schema & client
-│   └── ui/            # Shared UI components
+│   ├── ui/            # Shared UI components
+│   ├── tailwind-config/
+│   ├── eslint-config/
+│   └── typescript-config/
 └── docker/            # Local PostgreSQL setup
 ```
